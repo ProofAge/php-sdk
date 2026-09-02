@@ -1,0 +1,52 @@
+{
+    "name": "proofage/php-sdk",
+    "description": "PHP SDK for the ProofAge API: HMAC request signing, resources, webhook verification. No framework dependencies.",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "ProofAge Team",
+            "email": "support@proofage.xyz"
+        }
+    ],
+    "support": {
+        "docs": "https://docs.proofage.xyz/api-reference.html#/"
+    },
+    "require": {
+        "php": "^8.1",
+        "ext-curl": "*",
+        "ext-json": "*",
+        "psr/http-message": "^1.0|^2.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5|^11.0|^12.0",
+        "laravel/pint": "^1.30",
+        "phpstan/phpstan": "^2.0",
+        "guzzlehttp/guzzle": "^7.0",
+        "psr/http-client": "^1.0",
+        "psr/http-factory": "^1.0"
+    },
+    "suggest": {
+        "psr/http-client": "Send requests through an existing PSR-18 client with ProofAge\\Sdk\\Http\\Psr18\\Psr18HttpClient",
+        "psr/http-factory": "Required together with psr/http-client for Psr18HttpClient",
+        "proofage/laravel-client": "Service provider, facade, webhook middleware and the proofage:verify-setup command for Laravel"
+    },
+    "autoload": {
+        "psr-4": {
+            "ProofAge\\Sdk\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "ProofAge\\Sdk\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "phpstan": "phpstan analyse",
+        "sync-spec": "@php scripts/sync-spec.php",
+        "check-release": "@php scripts/check-release.php"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

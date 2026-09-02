@@ -1,0 +1,1395 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "API Reference",
+        "version": "1.0.0",
+        "description": "ProofAge is an identity verification and age estimation API. Use this API to create verification sessions, upload media (selfies and documents), and receive decisions via webhooks."
+    },
+    "servers": [
+        {
+            "url": "https://api.proofage.com/v1",
+            "description": "API"
+        }
+    ],
+    "security": [
+        {
+            "apiKey": []
+        }
+    ],
+    "paths": {
+        "/verifications/{verification}/media": {
+            "post": {
+                "operationId": "uploadMedia",
+                "description": "Uploads a selfie or document image to the verification session.\nConsent must be accepted before uploading. The file is validated\nfor quality (face detection, blur, brightness for selfies;\ndocument detection, readability for documents).",
+                "summary": "Upload media",
+                "tags": [
+                    "Media"
+                ],
+                "parameters": [
+                    {
+                        "name": "verification",
+                        "in": "path",
+                        "required": true,
+                        "description": "The verification ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UploadMediaRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "integer",
+                                    "const": 200
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/verifications/{verification}/media/{media}": {
+            "get": {
+                "operationId": "downloadVerificationMedia",
+                "description": "Streams the bytes of a selfie or document image belonging to the\nverification, served by ProofAge under the same API key and HMAC\nsignature as every other endpoint. Use this instead of `signed_url`\nwhen the presigned storage URL is unreachable from your network.\n\nThe response body is the image itself; `Content-Type` carries its MIME\ntype. Media that has been purged, has passed its retention window, or\ndoes not belong to this verification answers 404.",
+                "summary": "Download media",
+                "tags": [
+                    "Media"
+                ],
+                "parameters": [
+                    {
+                        "name": "verification",
+                        "in": "path",
+                        "required": true,
+                        "description": "The verification ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "media",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The media file itself. Content-Type carries its MIME type.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            },
+                            "image/jpeg": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Media does not belong to this verification, or is no longer available.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "examples": [
+                                        {
+                                            "error": {
+                                                "code": "MEDIA_NOT_FOUND",
+                                                "message": "Media not found."
+                                            }
+                                        }
+                                    ],
+                                    "properties": {
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "string"
+                                                },
+                                                "message": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "code",
+                                                "message"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "error"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/verifications": {
+            "post": {
+                "operationId": "createVerification",
+                "description": "Creates a new verification session and returns a URL for the end-user to complete verification.\nWhen the X-ProofAge-Client request header is \"native\", the response uses the compact native\nsession format (host, id, session_token, url).",
+                "summary": "Create a verification session",
+                "tags": [
+                    "Verification"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StoreVerificationRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "integer",
+                                    "const": 201
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/verifications/{verification}/consent": {
+            "post": {
+                "operationId": "acceptConsent",
+                "description": "Records the end-user's acceptance of the data processing consent.\nMust be called before uploading media or submitting the verification.",
+                "summary": "Accept consent",
+                "tags": [
+                    "Verification"
+                ],
+                "parameters": [
+                    {
+                        "name": "verification",
+                        "in": "path",
+                        "required": true,
+                        "description": "The verification ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StoreVerificationConsentRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "integer",
+                                    "const": 200
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/verifications/{verification}": {
+            "get": {
+                "operationId": "getVerification",
+                "description": "Retrieves the current state of a verification session including its status and decision reason.",
+                "summary": "Get verification status",
+                "tags": [
+                    "Verification"
+                ],
+                "parameters": [
+                    {
+                        "name": "verification",
+                        "in": "path",
+                        "required": true,
+                        "description": "The verification ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Verification session state.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "examples": [
+                                        {
+                                            "id": "550e8400-e29b-41d4-a716-446655440000",
+                                            "external_id": "user-123",
+                                            "external_metadata": {
+                                                "plan": "premium"
+                                            },
+                                            "redirect_url": "https://example.com/callback",
+                                            "status": "approved",
+                                            "reason": null,
+                                            "duplicate_check": {
+                                                "checked": true,
+                                                "duplicate_count": 2,
+                                                "duplicates": [
+                                                    {
+                                                        "verification_id": "771a9200-c3df-4e88-b201-112233445566",
+                                                        "external_id": "user-456",
+                                                        "similarity_score": 0.93,
+                                                        "verified_at": "2026-03-11T09:22:41+00:00"
+                                                    }
+                                                ]
+                                            },
+                                            "consent_accepted_at": "2026-03-19T12:01:00+00:00",
+                                            "created_at": "2026-03-19T12:00:00+00:00",
+                                            "updated_at": "2026-03-19T12:05:00+00:00"
+                                        }
+                                    ],
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "external_id": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "external_metadata": {
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ],
+                                            "additionalProperties": {}
+                                        },
+                                        "redirect_url": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "reason": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "duplicate_check": {
+                                            "type": "object",
+                                            "properties": {
+                                                "checked": {
+                                                    "type": "boolean"
+                                                },
+                                                "duplicate_count": {
+                                                    "type": "integer"
+                                                },
+                                                "duplicates": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "verification_id": {
+                                                                "type": "string"
+                                                            },
+                                                            "external_id": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "similarity_score": {
+                                                                "type": "number"
+                                                            },
+                                                            "verified_at": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "verification_id",
+                                                            "external_id",
+                                                            "similarity_score",
+                                                            "verified_at"
+                                                        ]
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "checked",
+                                                "duplicate_count",
+                                                "duplicates"
+                                            ]
+                                        },
+                                        "consent_accepted_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "created_at": {
+                                            "type": "string"
+                                        },
+                                        "updated_at": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "external_id",
+                                        "external_metadata",
+                                        "redirect_url",
+                                        "status",
+                                        "reason",
+                                        "duplicate_check",
+                                        "consent_accepted_at",
+                                        "created_at",
+                                        "updated_at"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/verifications/{verification}/estimation": {
+            "get": {
+                "operationId": "getVerificationEstimation",
+                "description": "Retrieves sanitized age-threshold and gender estimates for age estimation workspaces.\nThe gender value uses 0 for female and 1 for male.",
+                "summary": "Get verification age estimation result",
+                "tags": [
+                    "Verification"
+                ],
+                "parameters": [
+                    {
+                        "name": "verification",
+                        "in": "path",
+                        "required": true,
+                        "description": "The verification ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Verification age estimation result. Gender value mapping: 0 = female, 1 = male.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "examples": [
+                                        {
+                                            "verification_id": "019de7a0-c11b-7373-9289-b0aa1ba08d13",
+                                            "attempt_id": "019de7a2-0305-7269-9cff-1715c71b19ae",
+                                            "age_threshold": {
+                                                "minimum": 18,
+                                                "passed": true,
+                                                "confidence": 0.98
+                                            },
+                                            "gender": {
+                                                "value": 0,
+                                                "confidence": 0.93
+                                            }
+                                        }
+                                    ],
+                                    "properties": {
+                                        "verification_id": {
+                                            "type": "string"
+                                        },
+                                        "attempt_id": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "age_threshold": {
+                                            "type": "object",
+                                            "properties": {
+                                                "minimum": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "passed": {
+                                                    "type": [
+                                                        "boolean",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "confidence": {
+                                                    "type": [
+                                                        "number",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "minimum",
+                                                "passed",
+                                                "confidence"
+                                            ]
+                                        },
+                                        "gender": {
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ],
+                                            "properties": {
+                                                "value": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "confidence": {
+                                                    "type": [
+                                                        "number",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "value",
+                                                "confidence"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "verification_id",
+                                        "attempt_id",
+                                        "age_threshold",
+                                        "gender"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/verifications/{verification}/document": {
+            "get": {
+                "operationId": "getVerificationDocument",
+                "description": "Retrieves sanitized document fields and the source media from the most relevant attempt.\nEach media item carries a `url` for the download endpoint, or null when the\nmedia has been purged or has passed its retention window.",
+                "summary": "Get verification document result",
+                "tags": [
+                    "Verification"
+                ],
+                "parameters": [
+                    {
+                        "name": "verification",
+                        "in": "path",
+                        "required": true,
+                        "description": "The verification ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Verification document result.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "examples": [
+                                        {
+                                            "document": {
+                                                "fields": {
+                                                    "first_name": "John",
+                                                    "last_name": "Doe",
+                                                    "date_of_birth": "1990-01-15",
+                                                    "document_number": "AB123456"
+                                                }
+                                            },
+                                            "media": [
+                                                {
+                                                    "id": "019de7a0-c11b-7373-9289-b0aa1ba08d13",
+                                                    "type": "selfie",
+                                                    "url": "https://api.proofage.xyz/v1/verifications/019de7a0-c11b-7373-9289-b0aa1ba08d13/media/019de7a0-c11b-7373-9289-b0aa1ba08d13"
+                                                },
+                                                {
+                                                    "id": "019de7a0-c129-7259-8a08-bc10390ecbdb",
+                                                    "type": "document_front",
+                                                    "url": "https://api.proofage.xyz/v1/verifications/019de7a0-c11b-7373-9289-b0aa1ba08d13/media/019de7a0-c129-7259-8a08-bc10390ecbdb"
+                                                }
+                                            ],
+                                            "meta": {
+                                                "attempt_id": "019de7a2-0305-7269-9cff-1715c71b19ae"
+                                            }
+                                        }
+                                    ],
+                                    "properties": {
+                                        "document": {
+                                            "type": "object",
+                                            "properties": {
+                                                "fields": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "first_name": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "last_name": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "date_of_birth": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "document_number": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "first_name",
+                                                        "last_name",
+                                                        "date_of_birth",
+                                                        "document_number"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "fields"
+                                            ]
+                                        },
+                                        "media": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "type": {
+                                                        "type": "string"
+                                                    },
+                                                    "url": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    }
+                                                },
+                                                "required": [
+                                                    "id",
+                                                    "type",
+                                                    "url"
+                                                ]
+                                            }
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "attempt_id": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "attempt_id"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "document",
+                                        "media",
+                                        "meta"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/verifications/{verification}/submit": {
+            "post": {
+                "operationId": "submitVerification",
+                "description": "Submits the verification for automated processing. All required media must be uploaded first.\nThe verification must be in `started` status with the required media attached.",
+                "summary": "Submit verification for processing",
+                "tags": [
+                    "Verification"
+                ],
+                "parameters": [
+                    {
+                        "name": "verification",
+                        "in": "path",
+                        "required": true,
+                        "description": "The verification ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "integer",
+                                    "const": 200
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/verifications/{verification}/blocked-face": {
+            "post": {
+                "operationId": "blockVerificationFace",
+                "description": "Adds the verification selfie face embedding to the workspace tenant blocklist.\nFuture verification attempts with a matching face will be declined by the AML blocklist step.\nOptional `reason` text is stored with the blocked face and truncated to 1000 characters.\n\nOptional `reason_code` classifies the block, and is what reporting counts: one of\n`presentation_attack`, `fraudulent_document`, `scam_or_abuse`, `underage`, `other`.\nSend it whenever a person made the decision \u2014 the admin consoles require it, so a\nblock that arrives without one cannot be told apart from an automated one.",
+                "summary": "Block a verification face",
+                "tags": [
+                    "Verification"
+                ],
+                "parameters": [
+                    {
+                        "name": "verification",
+                        "in": "path",
+                        "required": true,
+                        "description": "The verification ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "allOf": [
+                                    {
+                                        "$ref": "#/components/schemas/BlockVerificationFaceRequest"
+                                    },
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "reason": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "204": {
+                        "description": "No content"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/workspace": {
+            "get": {
+                "operationId": "getWorkspace",
+                "description": "Returns the workspace settings including flow type, verification mode, and age thresholds.",
+                "summary": "Get workspace configuration",
+                "tags": [
+                    "Workspace"
+                ],
+                "parameters": [
+                    {
+                        "name": "workspace",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`WorkspaceResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkspaceResource"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/consent": {
+            "get": {
+                "operationId": "getConsent",
+                "description": "Returns the currently active consent version that must be presented to and accepted by the end-user.",
+                "summary": "Get active consent",
+                "tags": [
+                    "Workspace"
+                ],
+                "parameters": [
+                    {
+                        "name": "workspace",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "integer",
+                                    "const": 200
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "apiKey": {
+                "type": "apiKey",
+                "description": "Your workspace API key",
+                "in": "header",
+                "name": "X-API-Key"
+            }
+        },
+        "schemas": {
+            "BlockVerificationFaceRequest": {
+                "type": "object",
+                "properties": {
+                    "reason_code": {
+                        "$ref": "#/components/schemas/BlockedFaceReasonCode"
+                    }
+                },
+                "title": "BlockVerificationFaceRequest"
+            },
+            "BlockedFaceReasonCode": {
+                "type": "string",
+                "description": "Why a person put this face on the blocklist. The admin consoles require one; the public API accepts it optionally, and propagated device matches carry none.\n",
+                "enum": [
+                    "presentation_attack",
+                    "fraudulent_document",
+                    "scam_or_abuse",
+                    "underage",
+                    "other"
+                ],
+                "title": "BlockedFaceReasonCode"
+            },
+            "StoreVerificationConsentRequest": {
+                "type": "object",
+                "properties": {
+                    "consent_version_id": {
+                        "type": "integer"
+                    },
+                    "text_sha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$",
+                        "minLength": 64,
+                        "maxLength": 64
+                    },
+                    "in_app_browser": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 64
+                    },
+                    "camera_permission": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "What the browser said about the camera before anything asked for\nit. A verification that stalls at consent carries no camera\nevents at all, so this is the only place the answer can be kept.\nUnrecognised values are nulled in prepareForValidation() rather\nthan rejected \u2014 see the note there.",
+                        "enum": [
+                            "granted",
+                            "denied",
+                            "prompt",
+                            "unsupported"
+                        ]
+                    },
+                    "camera_policy_allowed": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
+                    "in_iframe": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
+                    "referrer": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "`android-app:<package>` when the launching app passes it; kept\nfor a human reading one stalled case, never branched on.",
+                        "maxLength": 512
+                    },
+                    "device": {
+                        "type": "object",
+                        "description": "Browser details, so a verification that stalls before its first\nupload still has technical information attached. Every field is\noptional: a browser that reports nothing must still be able to\naccept consent.",
+                        "properties": {
+                            "platform": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "maxLength": 255
+                            },
+                            "screen": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "maxLength": 64
+                            },
+                            "language": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "maxLength": 64
+                            },
+                            "timezone": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "maxLength": 64
+                            },
+                            "hardware_concurrency": {
+                                "type": [
+                                    "number",
+                                    "null"
+                                ],
+                                "minimum": 0,
+                                "maximum": 1024
+                            },
+                            "device_memory": {
+                                "type": [
+                                    "number",
+                                    "null"
+                                ],
+                                "minimum": 0,
+                                "maximum": 1024
+                            }
+                        }
+                    }
+                },
+                "required": [
+                    "consent_version_id",
+                    "text_sha256"
+                ],
+                "title": "StoreVerificationConsentRequest"
+            },
+            "StoreVerificationRequest": {
+                "type": "object",
+                "description": "Validates POST /v1/verifications payloads for workspace API keys.\n\nSend header {@see self::HEADER_PROOFAGE_CLIENT}: {@see self::CLIENT_NATIVE} when the caller is the\nhosted verify app or native SDK and needs the compact session response (host, id, session_token, url).",
+                "properties": {
+                    "fingerprint": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "minLength": 64,
+                        "maxLength": 64
+                    },
+                    "callback_url": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uri",
+                        "description": "SHA256 hash is 64 characters, optional for backward compatibility",
+                        "maxLength": 2048
+                    },
+                    "external_id": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 255
+                    },
+                    "external_metadata": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "metadata": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "title": "StoreVerificationRequest"
+            },
+            "UploadMediaRequest": {
+                "type": "object",
+                "properties": {
+                    "file": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "selfie",
+                            "liveness_selfie",
+                            "document"
+                        ]
+                    },
+                    "side": {
+                        "type": "string",
+                        "enum": [
+                            "front",
+                            "back"
+                        ]
+                    },
+                    "document": {
+                        "type": "string",
+                        "enum": [
+                            "id",
+                            "driver_license",
+                            "passport",
+                            "residence_permit"
+                        ]
+                    },
+                    "fingerprint": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "minLength": 64,
+                        "maxLength": 64
+                    },
+                    "head_turn_step": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 10
+                    },
+                    "capture_resolution": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "device_info": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "liveness_telemetry": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "file",
+                    "type"
+                ],
+                "title": "UploadMediaRequest"
+            },
+            "VerificationDocumentResource": {
+                "type": "object",
+                "properties": {
+                    "document": {
+                        "type": "object",
+                        "properties": {
+                            "fields": {
+                                "type": "object",
+                                "properties": {
+                                    "first_name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "last_name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "date_of_birth": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "document_number": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "first_name",
+                                    "last_name",
+                                    "date_of_birth",
+                                    "document_number"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "fields"
+                        ]
+                    },
+                    "media": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "string"
+                                },
+                                "type": {
+                                    "type": "string"
+                                },
+                                "url": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "id",
+                                "type",
+                                "url"
+                            ]
+                        }
+                    },
+                    "meta": {
+                        "type": "object",
+                        "properties": {
+                            "attempt_id": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "attempt_id"
+                        ]
+                    }
+                },
+                "required": [
+                    "document",
+                    "media",
+                    "meta"
+                ],
+                "title": "VerificationDocumentResource"
+            },
+            "VerificationEstimationResource": {
+                "type": "object",
+                "properties": {
+                    "verification_id": {
+                        "type": "string"
+                    },
+                    "attempt_id": {
+                        "type": "string"
+                    },
+                    "age_threshold": {
+                        "type": "object",
+                        "properties": {
+                            "minimum": {
+                                "type": "string"
+                            },
+                            "passed": {
+                                "type": [
+                                    "boolean",
+                                    "null"
+                                ]
+                            },
+                            "confidence": {
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "minimum",
+                            "passed",
+                            "confidence"
+                        ]
+                    },
+                    "gender": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "properties": {
+                            "value": {
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "enum": [
+                                    0,
+                                    1,
+                                    null
+                                ]
+                            },
+                            "confidence": {
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "value",
+                            "confidence"
+                        ]
+                    }
+                },
+                "required": [
+                    "verification_id",
+                    "attempt_id",
+                    "age_threshold",
+                    "gender"
+                ],
+                "title": "VerificationEstimationResource"
+            },
+            "VerificationResource": {
+                "type": "array",
+                "items": {},
+                "title": "VerificationResource"
+            },
+            "WorkspaceResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "flow_type": {
+                        "type": "string"
+                    },
+                    "mode": {
+                        "type": "string"
+                    },
+                    "age_mode": {
+                        "type": "string"
+                    },
+                    "age_threshold": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "verification_type": {
+                        "type": "string"
+                    },
+                    "redirect_url": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "webhook_url": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "allow_expired_documents": {
+                        "type": "boolean"
+                    },
+                    "allow_duplicate_accounts": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "flow_type",
+                    "mode",
+                    "age_mode",
+                    "age_threshold",
+                    "verification_type",
+                    "redirect_url",
+                    "webhook_url",
+                    "allow_expired_documents",
+                    "allow_duplicate_accounts"
+                ],
+                "title": "WorkspaceResource"
+            }
+        },
+        "responses": {
+            "ValidationException": {
+                "description": "Validation error",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Errors overview."
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "description": "A detailed description of each field that failed validation.",
+                                    "additionalProperties": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            },
+                            "required": [
+                                "message",
+                                "errors"
+                            ]
+                        }
+                    }
+                }
+            },
+            "ModelNotFoundException": {
+                "description": "Not found",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Error overview."
+                                }
+                            },
+                            "required": [
+                                "message"
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

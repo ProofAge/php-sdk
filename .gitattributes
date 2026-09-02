@@ -1,0 +1,12 @@
+# Keep src/, resources/, README.md, AGENTS.md, LICENSE.md in the dist.
+/.github            export-ignore
+/tests              export-ignore
+/docs               export-ignore
+/scripts            export-ignore
+/.gitattributes     export-ignore
+/.gitignore         export-ignore
+/phpunit.xml        export-ignore
+/phpstan.neon       export-ignore
+/pint.json          export-ignore
+/.phpunit.cache     export-ignore
+.DS_Store           export-ignore
