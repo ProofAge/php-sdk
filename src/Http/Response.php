@@ -18,7 +18,7 @@ final class Response
     public readonly array $headers;
 
     /**
-     * @param  array<string, string|list<string>>  $headers
+     * @param  array<string, string|array<string>>  $headers  values may be a string or any array of strings (PSR-7 style)
      * @param  Request  $request  the request the transport received: signed, final attempt
      */
     public function __construct(
@@ -108,7 +108,7 @@ final class Response
     }
 
     /**
-     * @param  array<string, string|list<string>>  $headers
+     * @param  array<string, string|array<string>>  $headers  values may be a string or any array of strings (PSR-7 style)
      * @return array<string, list<string>>
      */
     private static function normalizeHeaders(array $headers): array
