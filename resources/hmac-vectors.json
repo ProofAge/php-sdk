@@ -1,0 +1,205 @@
+{
+    "version": 1,
+    "secret": "vector-secret-2026",
+    "json": [
+        {
+            "name": "GET without body",
+            "method": "GET",
+            "path": "/v1/workspace",
+            "body": "",
+            "canonical": "GET/v1/workspace",
+            "expected": "5e9512284e9002a7fd5a245fdefbc8f725f4c5897ceea270c756d59355c0197e"
+        },
+        {
+            "name": "POST with JSON body containing escaped slash and unicode",
+            "method": "POST",
+            "path": "/v1/verifications",
+            "body": "{\"callback_url\":\"https:\\/\\/example.com\\/hook\",\"external_metadata\":{\"name\":\"J\\u00fcrgen\"}}",
+            "canonical": "POST/v1/verifications{\"callback_url\":\"https:\\/\\/example.com\\/hook\",\"external_metadata\":{\"name\":\"J\\u00fcrgen\"}}",
+            "expected": "f7138adf6f0e44db2ff1585436212648b66531ae4140a7a566cc45926325669d"
+        },
+        {
+            "name": "POST with empty data sends no body",
+            "method": "POST",
+            "path": "/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/submit",
+            "body": "",
+            "canonical": "POST/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/submit",
+            "expected": "7d3db3b22682340ceaa027eaa5883d7d36bf58b13159c5665c8d5654e0aaa3ec"
+        },
+        {
+            "name": "lower-case method input is upper-cased",
+            "method": "post",
+            "path": "/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/consent",
+            "body": "{\"consent_version_id\":3,\"text_sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\"}",
+            "canonical": "POST/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/consent{\"consent_version_id\":3,\"text_sha256\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\"}",
+            "expected": "4b69984cc4185770df137e1d12f85408c7255e07d5497828b4505a4debc8981b"
+        },
+        {
+            "name": "query string is normalized: sorted keys, RFC 3986 encoding, plus becomes %20",
+            "method": "GET",
+            "path": "/v1/verifications",
+            "query": "status=approved&limit=10&q=a+b",
+            "body": "",
+            "canonical": "GET/v1/verifications?limit=10&q=a%20b&status=approved",
+            "expected": "fd1aab9c759aeaa41b7a9958ebe4fb3f73014e00d6682e2956d877ca6d5db565"
+        },
+        {
+            "name": "body with slash, non-ASCII and a literal double quote inside a string",
+            "method": "POST",
+            "path": "/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/blocked-face",
+            "body": "{\"reason\":\"Said \\\"no\\\" \\u2014 J\\u00fcrgen\\/2026\",\"reason_code\":\"other\"}",
+            "canonical": "POST/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/blocked-face{\"reason\":\"Said \\\"no\\\" \\u2014 J\\u00fcrgen\\/2026\",\"reason_code\":\"other\"}",
+            "expected": "054684f16a9594bc717ecab9c96647124c4d211337b76bb7420f67363fbd0927"
+        }
+    ],
+    "multipart": [
+        {
+            "name": "one file, fields given out of order",
+            "method": "POST",
+            "path": "/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/media",
+            "fields": {
+                "type": "document",
+                "side": "front",
+                "document": "passport"
+            },
+            "files": [
+                {
+                    "field": "file",
+                    "filename": "front.jpg",
+                    "content_base64": "bm90LXJlYWxseS1hLWpwZWcK",
+                    "sha256": "b8bb23845fe8fe17d1d59175b103f16adfc181584e734446c391487d7e56d684"
+                }
+            ],
+            "canonical": "POST/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/media\ndocument=passport&side=front&type=document\nb8bb23845fe8fe17d1d59175b103f16adfc181584e734446c391487d7e56d684",
+            "expected": "4c6daa63ac45d2688fb45ef941aaa2fdf0cac7810f802653423d68da1bad5c03"
+        },
+        {
+            "name": "two files whose hashes sort into the opposite order from their field order",
+            "method": "POST",
+            "path": "/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/media",
+            "fields": {
+                "type": "document",
+                "side": "front",
+                "document": "id"
+            },
+            "files": [
+                {
+                    "field": "file",
+                    "filename": "front.jpg",
+                    "content_base64": "ZnJvbnQgc2lkZSBieXRlcwo=",
+                    "sha256": "7dc3673c00e5dc6d0b1a9156acef47225220551c18fee39fb737e5cfc7038549"
+                },
+                {
+                    "field": "file_back",
+                    "filename": "back.jpg",
+                    "content_base64": "YmFjayBzaWRlIGJ5dGVzCg==",
+                    "sha256": "756329213a5af5c3a2b4f9a3e8c7d922e41181de58c457a18269d46d581191dd"
+                }
+            ],
+            "canonical": "POST/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/media\ndocument=id&side=front&type=document\n756329213a5af5c3a2b4f9a3e8c7d922e41181de58c457a18269d46d581191dd,7dc3673c00e5dc6d0b1a9156acef47225220551c18fee39fb737e5cfc7038549",
+            "expected": "1eba0d5d48b835d51b0b62f0d1fa99a5f82211424972f41f6d4b3f0996d73945"
+        },
+        {
+            "name": "nested array fields are ksorted recursively",
+            "method": "POST",
+            "path": "/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/media",
+            "fields": {
+                "type": "selfie",
+                "device_info": {
+                    "os": "iOS",
+                    "browser": "Safari",
+                    "screen": {
+                        "width": 390,
+                        "height": 844
+                    }
+                }
+            },
+            "files": [
+                {
+                    "field": "file",
+                    "filename": "selfie.jpg",
+                    "content_base64": "bm90LXJlYWxseS1hLWpwZWcK",
+                    "sha256": "b8bb23845fe8fe17d1d59175b103f16adfc181584e734446c391487d7e56d684"
+                }
+            ],
+            "canonical": "POST/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/media\ndevice_info%5Bbrowser%5D=Safari&device_info%5Bos%5D=iOS&device_info%5Bscreen%5D%5Bheight%5D=844&device_info%5Bscreen%5D%5Bwidth%5D=390&type=selfie\nb8bb23845fe8fe17d1d59175b103f16adfc181584e734446c391487d7e56d684",
+            "expected": "9d4f7677935e1c894e3549bfb02c197ce755c51933f3e649fc79389c86397cee"
+        },
+        {
+            "name": "field values with RFC 3986 reserved characters: JSON string, spaces, ampersand, equals, plus, tilde, asterisk",
+            "method": "POST",
+            "path": "/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/media",
+            "fields": {
+                "type": "selfie",
+                "device_info": "{\"os\":\"iOS 17.4\",\"ua\":\"Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X)\"}",
+                "capture_resolution": "1920x1080",
+                "note": "a=b&c d+e~f*g"
+            },
+            "files": [
+                {
+                    "field": "file",
+                    "filename": "selfie.jpg",
+                    "content_base64": "bm90LXJlYWxseS1hLWpwZWcK",
+                    "sha256": "b8bb23845fe8fe17d1d59175b103f16adfc181584e734446c391487d7e56d684"
+                }
+            ],
+            "canonical": "POST/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/media\ncapture_resolution=1920x1080&device_info=%7B%22os%22%3A%22iOS%2017.4%22%2C%22ua%22%3A%22Mozilla%2F5.0%20%28iPhone%3B%20CPU%20iPhone%20OS%2017_4%20like%20Mac%20OS%20X%29%22%7D&note=a%3Db%26c%20d%2Be~f%2Ag&type=selfie\nb8bb23845fe8fe17d1d59175b103f16adfc181584e734446c391487d7e56d684",
+            "expected": "c1124278b975a51b7aaeb0c3616b47ab314caf846c4c537d25ae354fae525472"
+        },
+        {
+            "name": "no fields at all leaves the middle line empty",
+            "method": "POST",
+            "path": "/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/media",
+            "fields": {},
+            "files": [
+                {
+                    "field": "file",
+                    "filename": "selfie.jpg",
+                    "content_base64": "bm90LXJlYWxseS1hLWpwZWcK",
+                    "sha256": "b8bb23845fe8fe17d1d59175b103f16adfc181584e734446c391487d7e56d684"
+                }
+            ],
+            "canonical": "POST/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/media\n\nb8bb23845fe8fe17d1d59175b103f16adfc181584e734446c391487d7e56d684",
+            "expected": "09ebc483e19f61b2d4d79b136f9a56793a8d44228996c5596676cd9f6e176e96"
+        },
+        {
+            "name": "zero-byte file",
+            "method": "POST",
+            "path": "/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/media",
+            "fields": {
+                "type": "selfie"
+            },
+            "files": [
+                {
+                    "field": "file",
+                    "filename": "empty.jpg",
+                    "content_base64": "",
+                    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                }
+            ],
+            "canonical": "POST/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/media\ntype=selfie\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "expected": "dd38a69ff9b46cede51729c1322f0c048d56bcea3162be10e7b7075a7240e7c2"
+        }
+    ],
+    "webhook": [
+        {
+            "name": "approved payload",
+            "timestamp": 1756800000,
+            "payload": "{\"verification_id\":\"0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b\",\"status\":\"approved\",\"timestamp\":\"2026-09-02T09:00:00+00:00\"}",
+            "expected": "e2f594bd0242c096299d28bb8d2af7ac4ca5aa2746b23efac2d6b18ad27dbf21"
+        },
+        {
+            "name": "empty payload",
+            "timestamp": 1756800000,
+            "payload": "",
+            "expected": "3c4d487da5c03898138c621ece29989fc4f4c157c6416999a63cc9693537e0eb"
+        },
+        {
+            "name": "payload whose canonical re-encoding differs from its bytes: expected is over the raw bytes, expected_canonical over the JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE re-encoding",
+            "timestamp": 1756800000,
+            "payload": "{\"verification_id\":\"0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b\",\"status\":\"declined\",\"reason\":\"document.face.mismatch\",\"fingerprint_signals\":{\"ip_timezone\":\"Europe\\/Berlin\"},\"external_metadata\":{\"name\":\"J\\u00fcrgen\"}}",
+            "expected": "aec1703864c1b669c6c97040f564d1896ddec7d2953e25a3849bef24a32b4af1",
+            "expected_canonical": "0a4c427b52cb2641c6a0c5dac2b95c08d7fb28abca28143bab7bafdc159db60c"
+        }
+    ]
+}
