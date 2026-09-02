@@ -18,6 +18,8 @@ use ProofAge\Sdk\Http\RetryPolicy;
 use ProofAge\Sdk\Middleware\Pipeline;
 use ProofAge\Sdk\Middleware\RetryMiddleware;
 use ProofAge\Sdk\Middleware\SignMiddleware;
+use ProofAge\Sdk\Resources\VerificationResource;
+use ProofAge\Sdk\Resources\WorkspaceResource;
 use ProofAge\Sdk\Signing\Signer;
 
 /**
@@ -61,6 +63,16 @@ class Client
         $this->exceptions = $exceptions ?? new DefaultExceptionFactory;
         $this->sign = new SignMiddleware((string) $this->config['api_key'], new Signer((string) $this->config['secret_key']));
         $this->pipeline = new Pipeline($this->transport, $this->sign, new RetryMiddleware);
+    }
+
+    public function workspace(): WorkspaceResource
+    {
+        return new WorkspaceResource($this);
+    }
+
+    public function verifications(?string $id = null): VerificationResource
+    {
+        return new VerificationResource($this, $id);
     }
 
     /**
