@@ -5,6 +5,11 @@ declare(strict_types=1);
 namespace ProofAge\Sdk\Tests\Signing;
 
 use PHPUnit\Framework\TestCase;
+use ProofAge\Sdk\Http\Body\FilePart;
+use ProofAge\Sdk\Http\Body\MultipartBody;
+use ProofAge\Sdk\Http\Body\RawBody;
+use ProofAge\Sdk\Http\Request;
+use ProofAge\Sdk\Http\RetryPolicy;
 use ProofAge\Sdk\Signing\Signer;
 
 class SignerTest extends TestCase
@@ -101,5 +106,44 @@ class SignerTest extends TestCase
             'a%5By%5D=1&a%5Bx%5D=2&b=0',
             Signer::normalizeQueryString('b=0&a[y]=1&a[x]=2'),
         );
+    }
+
+    private function request(RawBody|MultipartBody|null $body, string $method = 'POST'): Request
+    {
+        return new Request($method, 'https://api.test.com/v1/m', '/v1/m', [], $body, RetryPolicy::interactive(), 30);
+    }
+
+    public function test_sign_uses_the_raw_form_for_a_raw_body(): void
+    {
+        $signer = new Signer($this->secret);
+
+        $this->assertSame($signer->signRaw('POST', '/v1/m', '{"a":1}'), $signer->sign($this->request(new RawBody('{"a":1}'))));
+    }
+
+    public function test_sign_uses_the_raw_form_with_an_empty_body_when_there_is_no_body(): void
+    {
+        $signer = new Signer($this->secret);
+
+        $this->assertSame($signer->signRaw('GET', '/v1/m', ''), $signer->sign($this->request(null, 'GET')));
+    }
+
+    public function test_sign_uses_the_multipart_form_for_a_multipart_body(): void
+    {
+        $signer = new Signer($this->secret);
+        $part = new FilePart('file', 'a.jpg', 'bytes');
+        $body = new MultipartBody(['type' => 'selfie'], [$part]);
+
+        $this->assertSame(
+            $signer->signMultipart('POST', '/v1/m', ['type' => 'selfie'], [$part->sha256()]),
+            $signer->sign($this->request($body)),
+        );
+    }
+
+    public function test_sign_covers_the_path_including_a_query_but_not_the_url(): void
+    {
+        $signer = new Signer($this->secret);
+        $request = $this->request(null, 'GET')->withPath('/v1/m?a=1')->withUrl('https://proxy.test/anything');
+
+        $this->assertSame($signer->signRaw('GET', '/v1/m?a=1'), $signer->sign($request));
     }
 }

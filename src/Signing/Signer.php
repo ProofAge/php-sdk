@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace ProofAge\Sdk\Signing;
 
+use ProofAge\Sdk\Http\Body\MultipartBody;
+use ProofAge\Sdk\Http\Body\RawBody;
+use ProofAge\Sdk\Http\Request;
+
 /**
  * The only implementation of the ProofAge request-signing canonical forms.
  *
@@ -15,6 +19,20 @@ namespace ProofAge\Sdk\Signing;
 final class Signer
 {
     public function __construct(private readonly string $secretKey) {}
+
+    /**
+     * Dispatches on the body type: RawBody and no body use the raw form, MultipartBody the multipart form.
+     */
+    public function sign(Request $request): string
+    {
+        $body = $request->body;
+
+        if ($body instanceof MultipartBody) {
+            return $this->signMultipart($request->method, $request->path, $body->fields, $body->fileHashes());
+        }
+
+        return $this->signRaw($request->method, $request->path, $body instanceof RawBody ? $body->bytes : '');
+    }
 
     /**
      * METHOD + path + rawBody. The bytes passed here must be the bytes the transport sends.
