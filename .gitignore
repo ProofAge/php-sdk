@@ -3,3 +3,6 @@
 .phpunit.cache/
 .idea/
 .DS_Store
+
+# Internal design docs are kept out of the public repository
+/docs/superpowers/
