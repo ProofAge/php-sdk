@@ -14,4 +14,12 @@ use ProofAge\Sdk\Http\Response;
 interface ExceptionFactory
 {
     public function fromResponse(Response $response): ProofAgeException;
+
+    /**
+     * Build the exception for a failure that never reached HTTP and so has no
+     * Response: an incomplete configuration, or a request body that will not
+     * encode. Routed through the seam for the same reason as fromResponse() —
+     * a host framework's `catch` must match these too.
+     */
+    public function configuration(string $message, ?\Throwable $previous = null): ProofAgeException;
 }

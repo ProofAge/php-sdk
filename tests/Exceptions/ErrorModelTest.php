@@ -93,6 +93,11 @@ class ErrorModelTest extends TestCase
             {
                 return $this->exception;
             }
+
+            public function configuration(string $message, ?\Throwable $previous = null): ProofAgeException
+            {
+                return $this->exception;
+            }
         };
 
         $this->assertSame($custom, $factory->fromResponse(FakeHttpClient::json([], 500)));

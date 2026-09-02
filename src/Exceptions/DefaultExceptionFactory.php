@@ -21,4 +21,9 @@ final class DefaultExceptionFactory implements ExceptionFactory
 
         return ProofAgeException::fromResponse($response);
     }
+
+    public function configuration(string $message, ?\Throwable $previous = null): ProofAgeException
+    {
+        return new ProofAgeException($message, 0, $previous);
+    }
 }

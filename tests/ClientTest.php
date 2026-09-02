@@ -334,6 +334,11 @@ class ClientTest extends TestCase
             {
                 return $this->exception;
             }
+
+            public function configuration(string $message, ?\Throwable $previous = null): ProofAgeException
+            {
+                return $this->exception;
+            }
         };
         $client = new Client(self::CONFIG, new FakeHttpClient(['*' => FakeHttpClient::json([], 500)]), $factory);
 

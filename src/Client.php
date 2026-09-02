@@ -57,10 +57,12 @@ class Client
             'download_retry_attempts' => 1,
         ], $config);
 
+        // Assigned before validateConfig() so configuration failures go through the seam too.
+        $this->exceptions = $exceptions ?? new DefaultExceptionFactory;
+
         $this->validateConfig();
 
         $this->transport = $transport ?? new CurlHttpClient;
-        $this->exceptions = $exceptions ?? new DefaultExceptionFactory;
         $this->sign = new SignMiddleware((string) $this->config['api_key'], new Signer((string) $this->config['secret_key']));
         $this->pipeline = new Pipeline($this->transport, $this->sign, new RetryMiddleware);
     }
@@ -199,15 +201,15 @@ class Client
     protected function validateConfig(): void
     {
         if (empty($this->config['api_key'])) {
-            throw new ProofAgeException('API key is required');
+            throw $this->exceptions->configuration('API key is required');
         }
 
         if (empty($this->config['secret_key'])) {
-            throw new ProofAgeException('Secret key is required');
+            throw $this->exceptions->configuration('Secret key is required');
         }
 
         if (empty($this->config['base_url'])) {
-            throw new ProofAgeException('Base URL is required');
+            throw $this->exceptions->configuration('Base URL is required');
         }
     }
 
@@ -258,7 +260,7 @@ class Client
         try {
             return json_encode($data, JSON_THROW_ON_ERROR);
         } catch (\JsonException $e) {
-            throw new ProofAgeException('Request body is not JSON-encodable', 0, $e);
+            throw $this->exceptions->configuration('Request body is not JSON-encodable', $e);
         }
     }
 
