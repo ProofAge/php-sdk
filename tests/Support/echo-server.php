@@ -5,6 +5,8 @@ declare(strict_types=1);
 /*
  * Router for PHP's built-in server, used by the `network-local` test group.
  *
+ *   Special paths match as suffixes so they also work under a /v1/ prefix.
+ *
  *   /status/{code}  that status with a JSON error body (3xx also carries a Location header)
  *   /slow           sleeps 3 seconds, for timeout tests
  *   /bytes/{n}      n deterministic bytes as image/jpeg, for stream and sink tests
@@ -16,7 +18,7 @@ declare(strict_types=1);
 $path = (string) parse_url((string) $_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $method = (string) $_SERVER['REQUEST_METHOD'];
 
-if (preg_match('#^/status/(\d{3})$#', $path, $m) === 1) {
+if (preg_match('#/status/(\d{3})$#', $path, $m) === 1) {
     $status = (int) $m[1];
     http_response_code($status);
     header('Content-Type: application/json');
@@ -33,14 +35,14 @@ if (preg_match('#^/status/(\d{3})$#', $path, $m) === 1) {
     return;
 }
 
-if ($path === '/slow') {
+if (str_ends_with($path, '/slow')) {
     sleep(3);
     echo 'slow';
 
     return;
 }
 
-if (preg_match('#^/bytes/(\d+)$#', $path, $m) === 1) {
+if (preg_match('#/bytes/(\d+)$#', $path, $m) === 1) {
     $length = (int) $m[1];
     header('Content-Type: image/jpeg');
     header('Content-Length: '.$length);
