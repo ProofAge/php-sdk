@@ -20,7 +20,7 @@ final class ResponseEvent
         return $this->response->status;
     }
 
-    /** @return array<string, list<string>> */
+    /** @return array<string, list<string>> names as the server sent them */
     public function headers(): array
     {
         return $this->response->headers;

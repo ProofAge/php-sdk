@@ -79,7 +79,7 @@ class Psr18HttpClientTest extends TestCase
         $this->assertSame('/v1/workspace', $echo['path']);
         $this->assertSame('b=2&a=1', $echo['query']);
         $this->assertSame('key-1', $echo['headers']['x-api-key']);
-        $this->assertSame(['a=1', 'b=2'], $response->headers()['set-cookie']);
+        $this->assertSame(['a=1', 'b=2'], $response->headers()['Set-Cookie']);
         $this->assertSame($request, $response->request);
     }
 

@@ -73,7 +73,8 @@ final class CurlHttpClient implements HttpClient
                     // A new status line: whatever came before was an interim response.
                     $responseHeaders = [];
                 } elseif (($colon = strpos($line, ':')) !== false) {
-                    $responseHeaders[strtolower(trim(substr($line, 0, $colon)))][] = trim(substr($line, $colon + 1));
+                    // The name is kept as the server spelled it; Response merges spellings.
+                    $responseHeaders[trim(substr($line, 0, $colon))][] = trim(substr($line, $colon + 1));
                 }
 
                 return strlen($line);

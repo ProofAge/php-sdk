@@ -169,7 +169,7 @@ class SignMiddlewareTest extends TestCase
 
         $this->assertInstanceOf(ResponseEvent::class, $event);
         $this->assertSame(200, $event->status());
-        $this->assertSame(['application/json'], $event->headers()['content-type']);
+        $this->assertSame(['application/json'], $event->headers()['Content-Type']);
         $this->assertSame('application/json', $event->contentType());
         $this->assertSame(11, $event->contentLength());
         $this->assertSame(1, $event->attempt());

@@ -71,13 +71,16 @@ class CurlHttpClientTest extends TestCase
         $this->assertSame(0.0, $response->durationMs, 'Transports do not measure time; SignMiddleware does.');
     }
 
-    public function test_response_headers_are_lower_cased_and_multi_valued(): void
+    public function test_response_headers_keep_their_case_and_are_multi_valued(): void
     {
         $response = (new CurlHttpClient)->send($this->request('GET', '/v1/x'));
 
         $this->assertSame('application/json', $response->header('Content-Type'));
+        $this->assertSame('application/json', $response->header('content-type'));
         $this->assertSame('1', $response->header('x-echo'));
-        $this->assertSame(['a=1', 'b=2'], $response->headers()['set-cookie']);
+        $this->assertSame(['a=1', 'b=2'], $response->headers()['Set-Cookie'], 'The name is the one the server sent, not a lower-cased copy.');
+        $this->assertArrayHasKey('Content-Type', $response->headers());
+        $this->assertArrayNotHasKey('content-type', $response->headers());
     }
 
     public function test_raw_body_bytes_arrive_unchanged_with_their_content_type(): void

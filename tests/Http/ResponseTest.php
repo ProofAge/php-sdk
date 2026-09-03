@@ -36,12 +36,24 @@ class ResponseTest extends TestCase
         $this->assertTrue($this->response(500)->failed());
     }
 
-    public function test_headers_are_normalized_to_lower_case_names_with_list_values(): void
+    /**
+     * Names keep the case the server sent: `isset($response->headers()['Content-Type'])`
+     * used to be silently false because every name was lower-cased.
+     */
+    public function test_headers_keep_the_case_the_server_sent_with_list_values(): void
     {
         $response = $this->response(200, '', ['Content-Type' => 'application/json', 'X-Multi' => ['a', 'b']]);
 
-        $this->assertSame(['content-type' => ['application/json'], 'x-multi' => ['a', 'b']], $response->headers());
-        $this->assertSame(['content-type' => ['application/json'], 'x-multi' => ['a', 'b']], $response->headers);
+        $this->assertSame(['Content-Type' => ['application/json'], 'X-Multi' => ['a', 'b']], $response->headers());
+        $this->assertSame(['Content-Type' => ['application/json'], 'X-Multi' => ['a', 'b']], $response->headers);
+        $this->assertTrue(isset($response->headers()['Content-Type']));
+    }
+
+    public function test_the_same_header_in_two_spellings_merges_under_the_first(): void
+    {
+        $response = $this->response(200, '', ['Set-Cookie' => 'a=1', 'set-cookie' => ['b=2']]);
+
+        $this->assertSame(['Set-Cookie' => ['a=1', 'b=2']], $response->headers());
     }
 
     public function test_header_returns_the_first_value_case_insensitively(): void
@@ -50,6 +62,7 @@ class ResponseTest extends TestCase
 
         $this->assertSame('a', $response->header('x-multi'));
         $this->assertSame('a', $response->header('X-MULTI'));
+        $this->assertSame('a', $response->header('X-Multi'));
         $this->assertNull($response->header('missing'));
     }
 
@@ -136,7 +149,7 @@ class ResponseTest extends TestCase
         $this->assertSame(12.5, $timed->durationMs);
         $this->assertSame(12.5, $rerequested->durationMs);
         $this->assertSame($other, $rerequested->request);
-        $this->assertSame(['a' => ['1']], $rerequested->headers());
+        $this->assertSame(['A' => ['1']], $rerequested->headers());
         $this->assertSame('x', $rerequested->body());
     }
 }

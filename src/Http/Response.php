@@ -14,7 +14,12 @@ use Psr\Http\Message\StreamInterface;
  */
 final class Response
 {
-    /** @var array<string, list<string>> lower-cased name => values */
+    /**
+     * Name as the server sent it => values. Lookups through header() are
+     * case-insensitive; two spellings of one name merge under the first one seen.
+     *
+     * @var array<string, list<string>>
+     */
     public readonly array $headers;
 
     /**
@@ -56,10 +61,21 @@ final class Response
     /** First value, case-insensitive. */
     public function header(string $name): ?string
     {
-        return $this->headers[strtolower($name)][0] ?? null;
+        foreach ($this->headers as $key => $values) {
+            if (strcasecmp($key, $name) === 0) {
+                return $values[0] ?? null;
+            }
+        }
+
+        return null;
     }
 
-    /** @return array<string, list<string>> */
+    /**
+     * Names as the server sent them, so `isset($response->headers()['Content-Type'])`
+     * works; use header() for a case-insensitive lookup.
+     *
+     * @return array<string, list<string>>
+     */
     public function headers(): array
     {
         return $this->headers;
@@ -131,13 +147,16 @@ final class Response
     private static function normalizeHeaders(array $headers): array
     {
         $normalized = [];
+        /** @var array<string, string> $spelling lower-cased name => the spelling first seen */
+        $spelling = [];
 
         foreach ($headers as $name => $value) {
-            $name = strtolower((string) $name);
+            $name = (string) $name;
+            $key = $spelling[strtolower($name)] ??= $name;
             $values = is_array($value) ? $value : [$value];
 
             foreach ($values as $item) {
-                $normalized[$name][] = (string) $item;
+                $normalized[$key][] = (string) $item;
             }
         }
 
