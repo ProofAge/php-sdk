@@ -336,6 +336,27 @@ class ClientTest extends TestCase
         $fake->assertNothingSent();
     }
 
+    public function test_a_multipart_field_name_php_would_rename_throws_before_anything_is_sent(): void
+    {
+        $client = $this->client(['*' => FakeHttpClient::json([])], [], $fake);
+
+        try {
+            $client->makeRequest('POST', 'verifications/ver_1/media', ['type' => 'selfie', 'device.info' => '{}'], ['file' => new FilePart('file', 'a.jpg', 'x')]);
+            $this->fail('Expected an InvalidArgumentException.');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertStringContainsString('device.info', $e->getMessage());
+        }
+
+        try {
+            $client->makeRequest('POST', 'verifications/ver_1/media', ['type' => 'selfie'], ['a' => new FilePart('file', 'a.jpg', 'x'), 'b' => new FilePart('file', 'b.jpg', 'y')]);
+            $this->fail('Expected an InvalidArgumentException.');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertStringContainsString('"file"', $e->getMessage());
+        }
+
+        $fake->assertNothingSent();
+    }
+
     public function test_an_unsupported_file_value_throws(): void
     {
         $client = $this->client(['*' => FakeHttpClient::json([])], [], $fake);
