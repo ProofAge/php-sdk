@@ -14,7 +14,9 @@ use ProofAge\Sdk\Http\Request;
  * - JSON / no-file requests: `METHOD + /{version}/{path}[?query] + rawBody`
  * - Multipart requests:      `METHOD/{version}/{path}[?query]\n{fields as RFC 3986 query, ksorted recursively}\n{comma-joined sorted sha256(file) hashes}`
  *
- * Both are pinned by resources/hmac-vectors.json, which the server executes too.
+ * Both are pinned by resources/hmac-vectors.json, executed by tests/Signing/HmacVectorsTest.php.
+ * The fixture ships in the dist so the server's test suite can execute the same file; until
+ * it does, the server's VerifyHmacSignature middleware and this class agree by inspection.
  */
 final class Signer
 {

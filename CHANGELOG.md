@@ -1,5 +1,63 @@
 # Changelog
 
+## Unreleased
+
+Fixes from an adversarial review of 0.1.1. Each was reproduced by running code before it was fixed.
+
+### Fixed
+
+- The secret key and request bodies no longer reach `print_r()` / `var_dump()`: `Client`, `Signer`,
+  `SignMiddleware`, `Request`, `FilePart`, `RawBody` and both webhook verifiers implement
+  `__debugInfo()` (secret redacted, API key and signature masked as the events mask them, bodies as
+  size plus sha256), the pipeline's `$next` closures are no longer bound to an object holding the
+  signer, and `#[\SensitiveParameter]` keeps the config out of a constructor failure's trace on
+  PHP 8.2+. `var_export()`, reflection and Symfony's VarDumper are not covered; the README says so.
+- `Response::json()` takes `(?string $key = null, mixed $default = null)` with a dot path, as
+  Illuminate's does; `json('error.code')` used to return the whole document because PHP ignores
+  extra arguments.
+- `downloadMediaTo()` (and `makeStreamedRequest()` with a sink) writes to a temporary sibling file
+  and renames it into place after a 2xx; a 404 or a transport failure leaves nothing at the
+  destination and a previous file there untouched. The exception still carries the error body.
+- `FakeHttpClient` gives every hit its own body stream; a second `downloadMedia()` against one fake
+  route used to return an empty string.
+- `WebhookVerifier` compares `X-Auth-Client` with `hash_equals()`.
+- `RetryMiddleware` does not retry a transport failure the transport marks as not retryable:
+  `CurlHttpClient` marks `CURLE_URL_MALFORMAT` and `CURLE_UNSUPPORTED_PROTOCOL`, which are raised by
+  the URL alone. `TransportException::isRetryable()` exposes the flag (fourth constructor argument,
+  default `true`).
+- `README.md` describes the interactive retry policy as implemented (any non-2xx that is not a
+  4xx, plus 429 and transport failures), and the golden-vector statements say the server's test
+  suite *can* execute the fixture rather than that it does.
+
+### Changed
+
+- `Response::headers()` keeps header names as the server sent them (`Content-Type`, not
+  `content-type`); two spellings of one name merge under the first seen. `header()` stays
+  case-insensitive. Code that indexed `headers()` with a lower-cased literal must use `header()` or
+  the server's spelling. `ResponseEvent::headers()` follows.
+- `Client::makeRequest()` / `makeStreamedRequest()` percent-encode each endpoint path segment once,
+  so the signed path is the sent path, and throw `\InvalidArgumentException` for an endpoint with
+  `.` or `..` segments, a `#`, whitespace or control characters. Those endpoints used to produce a
+  401 "HMAC signature is invalid". Pass raw segments; a pre-encoded segment is encoded again.
+- `Request::$sink` seen by middleware, events and `FakeHttpClient::sent()` during a download to a
+  path is the temporary `{path}.{random}.part` the transport writes to, not the final path.
+- `timeout`, `retry_attempts`, `retry_delay` and `download_retry_attempts` must be integers
+  (integer-valued strings are accepted); a float such as `timeout => 0.5`, which used to become
+  `0` and mean "no timeout" to cURL, now throws `ProofAgeException` at construction. Zero attempts
+  still clamp to one.
+- `Request::withHeader()` (and the constructor) throw `\InvalidArgumentException` for a header
+  value containing CR, LF or NUL, or a name that is not an HTTP token.
+- `MultipartBody` (so `uploadMedia()` and `makeRequest()` with files) throws
+  `\InvalidArgumentException` for a top-level field name that is not a valid PHP variable name, or a
+  file field name used twice; PHP would register those under a different name on the server and
+  the signature would not match.
+
+### Added
+
+- `Client::__construct(array $config, ?HttpClient $transport = null, ?ExceptionFactory $exceptions = null, ?callable $sleep = null)`:
+  `$sleep` receives microseconds and replaces the `usleep()` between retry attempts, so a host
+  framework's time fake covers it (Laravel: `Sleep::usleep(...)`).
+
 ## 0.1.0 - 2026-09-02
 
 First release: the ProofAge client extracted from `proofage/laravel-client` 0.6.0 into a

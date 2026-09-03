@@ -41,7 +41,7 @@ Every request is signed with `X-API-Key` and `X-HMAC-Signature`; you never touch
 | `base_url` | required | `https://api.proofage.xyz`; must have no path component |
 | `version` | `v1` | API version segment |
 | `timeout` | `30` | Seconds per attempt; a positive integer (sub-second timeouts are not supported) |
-| `retry_attempts` | `3` | Attempts for interactive requests; a transport failure, a 429 or a 5xx earns another one |
+| `retry_attempts` | `3` | Attempts for interactive requests; a transport failure, a 429, or any non-2xx status that is not a 4xx (a 3xx or a 5xx) earns another one |
 | `retry_delay` | `1000` | Milliseconds between attempts, constant; an integer, 0 allowed |
 | `download_retry_attempts` | `1` | Attempts for media downloads; only a transport failure is retried, never an HTTP status |
 
@@ -289,10 +289,17 @@ Patterns use `*` wildcards and are tried in order. `sent()` returns the requests
 received them — signed, one per attempt — so you can assert `X-HMAC-Signature` and
 `$request->body->bytes` directly. An unmatched URL throws `\LogicException`.
 
+The wait between retry attempts is `usleep()` unless you pass a fourth constructor argument,
+`callable(int $microseconds): void`; a test that exercises retries passes a recorder or
+`static fn () => null` so it does not sleep for real (the Laravel package passes `Sleep::usleep(...)`
+so `Sleep::fake()` covers it).
+
 ## Contract
 
 `resources/openapi.json` is the bundled API spec and `resources/hmac-vectors.json` the golden
-signature vectors both this SDK and the ProofAge server execute. See [`AGENTS.md`](AGENTS.md).
+signature vectors this SDK executes in its test suite. The fixture ships in the dist so the ProofAge
+server's tests can execute the same file; until they do, the two implementations agree by
+inspection. See [`AGENTS.md`](AGENTS.md).
 
 ## License
 
