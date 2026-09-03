@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ProofAge\Sdk\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ProofAge\Sdk\Client;
 use ProofAge\Sdk\Events\ErrorEvent;
@@ -186,6 +187,71 @@ class ClientTest extends TestCase
         } catch (ProofAgeException $e) {
             $this->assertSame('Request body is not JSON-encodable', $e->getMessage());
             $this->assertInstanceOf(\JsonException::class, $e->getPrevious());
+        }
+
+        $fake->assertNothingSent();
+    }
+
+    /**
+     * The signed path must be the path the transport sends. cURL percent-encodes a
+     * non-ASCII segment, so signing it raw produced a 401 "HMAC signature is invalid"
+     * where the developer should have seen a 404.
+     */
+    public function test_path_segments_are_percent_encoded_in_both_the_url_and_the_signed_path(): void
+    {
+        $client = $this->client(['*' => FakeHttpClient::json([])], [], $fake);
+
+        $client->makeRequest('GET', 'verifications/Jürgen:1+2,x/document');
+
+        $sent = $fake->sent()[0];
+        $this->assertSame('https://api.test.com/v1/verifications/J%C3%BCrgen%3A1%2B2%2Cx/document', $sent->url);
+        $this->assertSame('/v1/verifications/J%C3%BCrgen%3A1%2B2%2Cx/document', $sent->path);
+        $this->assertSame($this->signature('GET/v1/verifications/J%C3%BCrgen%3A1%2B2%2Cx/document'), $sent->header('X-HMAC-Signature'));
+    }
+
+    public function test_plain_segments_and_a_query_string_are_unaffected_by_the_encoding(): void
+    {
+        $client = $this->client(['*' => FakeHttpClient::json([])], [], $fake);
+
+        $client->makeRequest('GET', '/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/media/med_1?limit=10');
+
+        $this->assertSame('https://api.test.com/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/media/med_1?limit=10', $fake->sent()[0]->url);
+        $this->assertSame('/v1/verifications/0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b/media/med_1?limit=10', $fake->sent()[0]->path);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function endpointsTheTransportWouldRewrite(): iterable
+    {
+        // cURL removes dot segments and strips fragments before sending; whitespace and
+        // control characters are rewritten or rejected depending on the transport.
+        yield 'parent segment' => ['verifications/../workspace'];
+        yield 'current segment' => ['./workspace'];
+        yield 'trailing dot segment' => ['verifications/.'];
+        yield 'fragment' => ['workspace#frag'];
+        yield 'fragment after query' => ['verifications?limit=1#frag'];
+        yield 'space' => ['verifications/ver 1'];
+        yield 'tab' => ["verifications/ver\t1"];
+        yield 'newline' => ["verifications/ver\n1"];
+        yield 'nul' => ["verifications/ver\x001"];
+        yield 'delete' => ["verifications/ver\x7F1"];
+    }
+
+    #[DataProvider('endpointsTheTransportWouldRewrite')]
+    public function test_an_endpoint_the_transport_would_rewrite_is_rejected_before_anything_is_sent(string $endpoint): void
+    {
+        $client = $this->client(['*' => FakeHttpClient::json([])], [], $fake);
+
+        try {
+            $client->makeRequest('GET', $endpoint);
+            $this->fail('Expected an InvalidArgumentException.');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertStringContainsString('endpoint', strtolower($e->getMessage()));
+        }
+
+        try {
+            $client->makeStreamedRequest('GET', $endpoint);
+            $this->fail('Expected an InvalidArgumentException.');
+        } catch (\InvalidArgumentException) {
         }
 
         $fake->assertNothingSent();

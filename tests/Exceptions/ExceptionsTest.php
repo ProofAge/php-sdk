@@ -78,4 +78,11 @@ class ExceptionsTest extends TestCase
         $this->assertSame($previous, $exception->getPrevious());
         $this->assertNull($exception->getResponse());
     }
+
+    public function test_a_transport_exception_is_retryable_unless_the_transport_says_otherwise(): void
+    {
+        $this->assertTrue((new TransportException('Connection refused', 7))->isRetryable());
+        $this->assertTrue((new TransportException('timeout'))->isRetryable());
+        $this->assertFalse((new TransportException('URL rejected', 3, null, false))->isRetryable());
+    }
 }

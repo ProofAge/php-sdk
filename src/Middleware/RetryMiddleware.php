@@ -32,7 +32,8 @@ final class RetryMiddleware
     /**
      * @param  callable(Request): Response  $next
      *
-     * @throws TransportException the last one, once the policy gives up
+     * @throws TransportException the last one, once the policy gives up, or at once when
+     *                            the transport marked it not retryable (a malformed URL)
      */
     public function handle(Request $request, callable $next): Response
     {
@@ -44,7 +45,7 @@ final class RetryMiddleware
             try {
                 $response = $next($current);
             } catch (TransportException $error) {
-                if ($attempt < $policy->maxAttempts && $policy->shouldRetry($current, null, $error)) {
+                if ($error->isRetryable() && $attempt < $policy->maxAttempts && $policy->shouldRetry($current, null, $error)) {
                     $this->wait($policy);
 
                     continue;

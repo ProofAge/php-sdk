@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ProofAge\Sdk\Tests\Http\Curl;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use ProofAge\Sdk\Exceptions\TransportException;
@@ -186,6 +187,28 @@ class CurlHttpClientTest extends TestCase
             $this->fail('Expected a TransportException.');
         } catch (TransportException $e) {
             $this->assertSame(CURLE_COULDNT_CONNECT, $e->getCode());
+            $this->assertTrue($e->isRetryable(), 'A refused connection may succeed next time.');
+        }
+    }
+
+    /** @return iterable<string, array{string, int}> */
+    public static function urlsCurlRejectsLocally(): iterable
+    {
+        yield 'malformed' => ['http://[::1/v1/workspace', CURLE_URL_MALFORMAT];
+        yield 'unsupported scheme' => ['htp://127.0.0.1:1/v1/workspace', CURLE_UNSUPPORTED_PROTOCOL];
+    }
+
+    #[DataProvider('urlsCurlRejectsLocally')]
+    public function test_a_url_curl_rejects_locally_is_a_transport_exception_that_must_not_be_retried(string $url, int $errno): void
+    {
+        $request = new Request('GET', $url, '/v1/workspace', [], null, RetryPolicy::download(), 5);
+
+        try {
+            (new CurlHttpClient)->send($request);
+            $this->fail('Expected a TransportException.');
+        } catch (TransportException $e) {
+            $this->assertSame($errno, $e->getCode());
+            $this->assertFalse($e->isRetryable(), 'The failure is deterministic and local; no attempt can change it.');
         }
     }
 

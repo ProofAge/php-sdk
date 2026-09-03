@@ -95,6 +95,24 @@ class RetryMiddlewareTest extends TestCase
         $this->assertSame([100_000, 100_000], $this->sleeps);
     }
 
+    public function test_a_transport_failure_marked_not_retryable_is_thrown_at_once_whatever_the_policy_says(): void
+    {
+        $sequence = [
+            static fn (): Response => throw new TransportException('URL rejected: Bad IPv6 address', CURLE_URL_MALFORMAT, null, false),
+            FakeHttpClient::json(['ok' => true]),
+        ];
+
+        try {
+            $this->sendThrough(RetryPolicy::interactive(3, 100), $sequence, $fake);
+            $this->fail('Expected the TransportException.');
+        } catch (TransportException $e) {
+            $this->assertSame(CURLE_URL_MALFORMAT, $e->getCode());
+        }
+
+        $fake->assertSentCount(1);
+        $this->assertSame([], $this->sleeps);
+    }
+
     public function test_a_single_attempt_policy_never_retries(): void
     {
         $response = $this->sendThrough(RetryPolicy::interactive(1, 1000), [FakeHttpClient::json([], 429), FakeHttpClient::json([])], $fake);

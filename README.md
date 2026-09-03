@@ -75,6 +75,12 @@ in [`AGENTS.md`](AGENTS.md) and in the `@param`/`@return` PHPDoc on `src/Resourc
 included) or a `ProofAge\Sdk\Http\Body\FilePart`. A path that does not exist throws
 `\InvalidArgumentException` before anything is sent.
 
+`makeRequest($method, $endpoint, $data, $files)` takes the endpoint relative to the version
+segment, with raw (not pre-encoded) path segments: each segment is percent-encoded once, so the
+signed path is exactly the path sent. An endpoint containing `.` or `..` segments, a `#fragment`,
+whitespace or control characters — things a transport rewrites before sending — throws
+`\InvalidArgumentException` rather than producing a 401 "HMAC signature is invalid".
+
 ### Media downloads
 
 ```php

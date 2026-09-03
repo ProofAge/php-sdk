@@ -26,6 +26,12 @@ final class CurlHttpClient implements HttpClient
     /** Seconds; the value Illuminate\Http\Client\PendingRequest applies by default. */
     public const CONNECT_TIMEOUT = 10;
 
+    /**
+     * cURL errors raised before anything touches the network, by the URL alone. They are
+     * deterministic, so the TransportException carrying them is marked not retryable.
+     */
+    private const LOCAL_URL_ERRORS = [CURLE_UNSUPPORTED_PROTOCOL, CURLE_URL_MALFORMAT];
+
     public function send(Request $request): Response
     {
         $url = $request->url;
@@ -95,7 +101,11 @@ final class CurlHttpClient implements HttpClient
             $error = curl_error($handle);
             fclose($body);
 
-            throw new TransportException($error !== '' ? $error : "cURL error {$errno}", $errno);
+            throw new TransportException(
+                $error !== '' ? $error : "cURL error {$errno}",
+                $errno,
+                retryable: ! in_array($errno, self::LOCAL_URL_ERRORS, true),
+            );
         }
 
         $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);

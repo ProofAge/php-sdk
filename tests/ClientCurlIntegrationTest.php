@@ -111,6 +111,43 @@ class ClientCurlIntegrationTest extends TestCase
         );
     }
 
+    public function test_a_non_ascii_segment_reaches_the_server_percent_encoded_and_is_signed_that_way(): void
+    {
+        $echo = $this->client()->makeRequest('GET', 'verifications/Jürgen/document')->json();
+
+        $this->assertSame('/v1/verifications/J%C3%BCrgen/document', $echo['path'], 'The raw request-target path, which is what the API signs via getPathInfo().');
+        $this->assertSame(hash_hmac('sha256', 'GET'.$echo['path'], self::SECRET), $echo['headers']['x-hmac-signature']);
+    }
+
+    public function test_a_malformed_url_fails_once_without_retrying(): void
+    {
+        $attempts = 0;
+        $slept = [];
+        $client = new Client([
+            'api_key' => 'integration-key',
+            'secret_key' => self::SECRET,
+            'base_url' => 'http://[::1',
+            'retry_attempts' => 3,
+            'retry_delay' => 1000,
+        ], null, null, static function (int $microseconds) use (&$slept): void {
+            $slept[] = $microseconds;
+        });
+        $client->onRequest(static function () use (&$attempts): void {
+            $attempts++;
+        });
+
+        try {
+            $client->makeRequest('GET', 'workspace');
+            $this->fail('Expected a TransportException.');
+        } catch (TransportException $e) {
+            $this->assertSame(CURLE_URL_MALFORMAT, $e->getCode());
+            $this->assertFalse($e->isRetryable());
+        }
+
+        $this->assertSame(1, $attempts, 'A malformed URL is deterministic and local; retrying it costs three attempts and two seconds for nothing.');
+        $this->assertSame([], $slept);
+    }
+
     public function test_bodyless_post_is_signed_over_method_and_path(): void
     {
         $echo = $this->client()->makeRequest('POST', 'verifications/ver_1/submit')->json();

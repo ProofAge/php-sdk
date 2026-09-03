@@ -257,10 +257,23 @@ class Client
      * The URL to send and the canonical path to sign: `/{version}/{endpoint}`, with any
      * query string normalized the way the server normalizes it before signing.
      *
+     * The signed path has to be the path the transport puts on the wire, and the server
+     * signs that raw request-target (Symfony's getPathInfo() does not decode it). So each
+     * segment is percent-encoded here, once, and anything a transport would rewrite before
+     * sending - `.` and `..` segments, a `#fragment`, whitespace, control characters - is
+     * rejected instead of being signed one way and sent another, which surfaced as a 401
+     * "HMAC signature is invalid" where a 404 was due.
+     *
      * @return array{string, string} [url, path]
+     *
+     * @throws \InvalidArgumentException for an endpoint no transport could send as given
      */
     private function resolve(string $endpoint): array
     {
+        if (str_contains($endpoint, '#')) {
+            throw new \InvalidArgumentException("Invalid endpoint \"{$endpoint}\": a fragment (#) is never sent to the server");
+        }
+
         $endpoint = ltrim($endpoint, '/');
         $query = '';
 
@@ -268,6 +281,21 @@ class Client
             $query = substr($endpoint, $mark + 1);
             $endpoint = substr($endpoint, 0, $mark);
         }
+
+        $endpoint = implode('/', array_map(
+            static function (string $segment) use ($endpoint): string {
+                if ($segment === '.' || $segment === '..') {
+                    throw new \InvalidArgumentException("Invalid endpoint \"{$endpoint}\": \".\" and \"..\" segments are resolved by the transport before sending");
+                }
+
+                if (preg_match('/[\s\x00-\x1F\x7F]/', $segment) === 1) {
+                    throw new \InvalidArgumentException('Invalid endpoint '.json_encode($endpoint, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).': whitespace and control characters are not allowed in a path segment');
+                }
+
+                return rawurlencode($segment);
+            },
+            explode('/', $endpoint),
+        ));
 
         $baseUrl = rtrim((string) $this->config['base_url'], '/');
         $version = (string) $this->config['version'];
