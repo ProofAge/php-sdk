@@ -21,6 +21,7 @@ use ProofAge\Sdk\Middleware\SignMiddleware;
 use ProofAge\Sdk\Resources\VerificationResource;
 use ProofAge\Sdk\Resources\WorkspaceResource;
 use ProofAge\Sdk\Signing\Signer;
+use ProofAge\Sdk\Stream\ResourceStream;
 
 /**
  * Entry point. Validates config, builds requests, runs them through
@@ -132,12 +133,21 @@ class Client
      * makeRequest() is that the response body is never decoded and, unless a $sink is
      * given, never held as a string.
      *
+     * With a sink, the transport writes to a temporary file next to it (`{sink}.{random}.part`,
+     * which is what middleware and events see as Request::$sink) that is renamed over
+     * $sink only once the response is 2xx, and removed on a transport failure or an
+     * error status. A caller who does not check therefore never finds a JSON error body
+     * or an empty file under the media's name, and a previous download at $sink survives
+     * a failed one. The exception for an error status still carries the body, read into
+     * memory before the file is removed.
+     *
      * @param  string|null  $sink  Absolute path to stream the body into. When null the body
      *                             is returned as a PSR-7 stream over php://temp.
      */
     public function makeStreamedRequest(string $method, string $endpoint, ?string $sink = null): Response
     {
         [$url, $path] = $this->resolve($endpoint);
+        $partial = $sink === null ? null : $sink.'.'.bin2hex(random_bytes(6)).'.part';
 
         $request = new Request(
             $method,
@@ -147,11 +157,47 @@ class Client
             null,
             RetryPolicy::download($this->downloadRetryAttempts(), $this->retryDelay()),
             $this->timeout(),
-            $sink,
+            $partial,
             $sink === null,
         );
 
-        return $this->handleResponse($this->pipeline->send($request));
+        if ($sink === null || $partial === null) {
+            return $this->handleResponse($this->pipeline->send($request));
+        }
+
+        try {
+            $response = $this->pipeline->send($request);
+        } catch (\Throwable $e) {
+            @unlink($partial);
+
+            throw $e;
+        }
+
+        return $this->handleResponse($this->commitDownload($response, $partial, $sink));
+    }
+
+    /**
+     * Move a completed download into place, or take its error body off the disk.
+     */
+    private function commitDownload(Response $response, string $partial, string $sink): Response
+    {
+        if (! $response->successful()) {
+            $body = $response->body();
+            $response->getBody()->close();
+            @unlink($partial);
+
+            return new Response($response->status, $response->headers, ResourceStream::fromString($body), $response->request, $response->durationMs);
+        }
+
+        $response->getBody()->close();
+
+        if (! @rename($partial, $sink)) {
+            @unlink($partial);
+
+            throw new \RuntimeException("Could not move the downloaded file into place at {$sink}");
+        }
+
+        return new Response($response->status, $response->headers, ResourceStream::open($sink, 'rb'), $response->request, $response->durationMs);
     }
 
     /**

@@ -202,6 +202,33 @@ class ClientCurlIntegrationTest extends TestCase
         $path = sys_get_temp_dir().'/proofage-integration-sink-'.uniqid().'.jpg';
         $client->makeStreamedRequest('GET', 'bytes/100', $path);
         $this->assertSame($expected, file_get_contents($path));
+        $this->assertSame([$path], glob($path.'*'), 'No partial file is left behind.');
         unlink($path);
+    }
+
+    public function test_a_failed_download_to_a_sink_leaves_no_file_on_disk(): void
+    {
+        $client = $this->client();
+        $path = sys_get_temp_dir().'/proofage-integration-sink-'.uniqid().'.jpg';
+
+        try {
+            $client->makeStreamedRequest('GET', 'status/404', $path);
+            $this->fail('Expected a ProofAgeException.');
+        } catch (ProofAgeException $e) {
+            $this->assertSame(404, $e->getCode());
+            $this->assertSame('STATUS_404', $e->getErrorCode());
+        }
+
+        $this->assertFileDoesNotExist($path, 'The JSON error body must not sit on disk under the media filename.');
+        $this->assertSame([], glob($path.'*'));
+
+        try {
+            $this->client(['timeout' => 1])->makeStreamedRequest('GET', 'slow', $path);
+            $this->fail('Expected a TransportException.');
+        } catch (TransportException) {
+        }
+
+        $this->assertFileDoesNotExist($path, 'A timeout must not leave an empty file.');
+        $this->assertSame([], glob($path.'*'));
     }
 }

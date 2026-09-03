@@ -6,6 +6,8 @@ namespace ProofAge\Sdk\Tests\Resources;
 
 use PHPUnit\Framework\TestCase;
 use ProofAge\Sdk\Client;
+use ProofAge\Sdk\Exceptions\ProofAgeException;
+use ProofAge\Sdk\Exceptions\TransportException;
 use ProofAge\Sdk\Http\Body\FilePart;
 use ProofAge\Sdk\Http\Body\MultipartBody;
 use ProofAge\Sdk\Http\Request;
@@ -357,6 +359,79 @@ class VerificationResourceTest extends TestCase
         $this->assertSame($path, $returned);
         $this->assertFileExists($path);
         $this->assertSame('binary-image-bytes', file_get_contents($path));
+
+        unlink($path);
+    }
+
+    /**
+     * On a 404 the destination used to hold the JSON error body under the media's
+     * filename, and on a transport failure an empty file: a caller who did not check had
+     * a corrupt "media" file on disk.
+     */
+    public function test_download_media_to_leaves_no_file_when_the_server_answers_an_error(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/v1/verifications/ver_1/media/med_1' => FakeHttpClient::json(['error' => ['code' => 'MEDIA_NOT_FOUND', 'message' => 'Media not found']], 404),
+        ]);
+        $path = sys_get_temp_dir().'/proofage-media-'.uniqid().'.jpg';
+
+        try {
+            $client->verifications('ver_1')->downloadMediaTo('med_1', $path);
+            $this->fail('Expected a ProofAgeException.');
+        } catch (ProofAgeException $e) {
+            $this->assertSame(404, $e->getCode());
+            $this->assertSame('MEDIA_NOT_FOUND', $e->getErrorCode(), 'The error body is still readable from the exception.');
+            $this->assertSame('Media not found', $e->getMessage());
+        }
+
+        $this->assertFileDoesNotExist($path);
+        $this->assertSame([], glob($path.'*'), 'No partial file is left next to the destination.');
+    }
+
+    public function test_download_media_to_leaves_no_file_when_the_transport_fails(): void
+    {
+        $client = $this->makeFakedClient(['*' => FakeHttpClient::failedConnection('Connection timed out')]);
+        $path = sys_get_temp_dir().'/proofage-media-'.uniqid().'.jpg';
+
+        try {
+            $client->verifications('ver_1')->downloadMediaTo('med_1', $path);
+            $this->fail('Expected a TransportException.');
+        } catch (TransportException $e) {
+            $this->assertSame('Connection timed out', $e->getMessage());
+        }
+
+        $this->assertFileDoesNotExist($path);
+        $this->assertSame([], glob($path.'*'));
+    }
+
+    public function test_download_media_to_keeps_an_existing_file_intact_when_the_download_fails(): void
+    {
+        $client = $this->makeFakedClient(['*' => FakeHttpClient::json(['error' => ['code' => 'MEDIA_NOT_FOUND']], 404)]);
+        $path = sys_get_temp_dir().'/proofage-media-'.uniqid().'.jpg';
+        file_put_contents($path, 'previous-download');
+
+        try {
+            $client->verifications('ver_1')->downloadMediaTo('med_1', $path);
+            $this->fail('Expected a ProofAgeException.');
+        } catch (ProofAgeException) {
+        }
+
+        $this->assertSame('previous-download', file_get_contents($path));
+        $this->assertSame([$path], glob($path.'*'));
+
+        unlink($path);
+    }
+
+    public function test_download_media_to_replaces_an_existing_file_on_success(): void
+    {
+        $client = $this->makeFakedClient(['*' => FakeHttpClient::raw('fresh-bytes')]);
+        $path = sys_get_temp_dir().'/proofage-media-'.uniqid().'.jpg';
+        file_put_contents($path, 'stale-bytes');
+
+        $client->verifications('ver_1')->downloadMediaTo('med_1', $path);
+
+        $this->assertSame('fresh-bytes', file_get_contents($path));
+        $this->assertSame([$path], glob($path.'*'));
 
         unlink($path);
     }

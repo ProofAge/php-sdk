@@ -244,7 +244,11 @@ class VerificationResource
     /**
      * Download one media file straight to disk.
      *
-     * Never holds the whole file in memory, so it stays safe as media grows.
+     * Never holds the whole file in memory, so it stays safe as media grows. The bytes
+     * are received into a temporary file next to $path and renamed over it only once
+     * the API answered 2xx; on a transport failure or an error status nothing is left
+     * at $path (and a previous file there is untouched), so a caller who does not
+     * check never finds an error body or an empty file under the media's name.
      *
      * @param  string  $path  Absolute destination path
      * @return string The path written to

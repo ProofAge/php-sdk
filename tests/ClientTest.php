@@ -441,13 +441,40 @@ class ClientTest extends TestCase
         $path = sys_get_temp_dir().'/proofage-media-'.uniqid().'.jpg';
         $client = $this->client(['*' => FakeHttpClient::raw('binary-image-bytes')], [], $fake);
 
-        $client->makeStreamedRequest('GET', 'verifications/ver_1/media/med_1', $path);
+        $response = $client->makeStreamedRequest('GET', 'verifications/ver_1/media/med_1', $path);
 
         $this->assertSame('binary-image-bytes', file_get_contents($path));
-        $this->assertSame($path, $fake->sent()[0]->sink);
         $this->assertFalse($fake->sent()[0]->stream);
 
+        // The transport writes next to the destination and the file is renamed into place on
+        // success, so a failed or interrupted download never leaves a wrong file at $path.
+        $partial = $fake->sent()[0]->sink;
+        $this->assertIsString($partial);
+        $this->assertStringStartsWith($path.'.', $partial);
+        $this->assertStringEndsWith('.part', $partial);
+        $this->assertSame(dirname($path), dirname($partial));
+        $this->assertFileDoesNotExist($partial);
+        $this->assertSame($path, $response->getBody()->getMetadata('uri'), 'The returned body streams from the final path.');
+        $this->assertSame('binary-image-bytes', (string) $response->getBody());
+
         unlink($path);
+    }
+
+    public function test_a_streamed_request_with_a_sink_that_fails_removes_the_partial_file_and_keeps_the_error_body(): void
+    {
+        $path = sys_get_temp_dir().'/proofage-media-'.uniqid().'.jpg';
+        $client = $this->client(['*' => FakeHttpClient::json(['error' => ['code' => 'MEDIA_NOT_FOUND', 'message' => 'Media not found']], 404)], [], $fake);
+
+        try {
+            $client->makeStreamedRequest('GET', 'verifications/ver_1/media/med_1', $path);
+            $this->fail('Expected a ProofAgeException.');
+        } catch (ProofAgeException $e) {
+            $this->assertSame(404, $e->getCode());
+            $this->assertSame('MEDIA_NOT_FOUND', $e->getResponse()?->json('error.code'));
+        }
+
+        $this->assertFileDoesNotExist($path);
+        $this->assertSame([], glob($path.'*'));
     }
 
     public function test_streamed_request_maps_errors_the_same_way(): void

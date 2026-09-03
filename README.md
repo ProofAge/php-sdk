@@ -93,6 +93,10 @@ With the bundled cURL transport the body is received into `php://temp`, which sp
 usually run from a queue whose own backoff owns the wait. Raise `download_retry_attempts` to retry
 connection failures only.
 
+`downloadMediaTo()` writes to a temporary file next to the destination and renames it into place
+only after a 2xx; a 404 or a timeout leaves nothing at the destination (and a file already there
+untouched), and the exception still carries the error body.
+
 ## Errors
 
 ```php
