@@ -7,6 +7,7 @@ namespace ProofAge\Sdk\Middleware;
 use ProofAge\Sdk\Exceptions\TransportException;
 use ProofAge\Sdk\Http\Request;
 use ProofAge\Sdk\Http\Response;
+use ProofAge\Sdk\Http\RetryPolicy;
 
 /**
  * The outermost layer: drives attempts per Request::$retryPolicy, so every layer below
@@ -19,15 +20,13 @@ final class RetryMiddleware
     private readonly \Closure $sleep;
 
     /**
-     * @param  callable(int): void|null  $sleep  milliseconds; defaults to usleep(). Tests inject a recorder.
+     * @param  callable(int): void|null  $sleep  receives microseconds, the unit of usleep() and of
+     *                                           Laravel's Sleep::usleep(), so a host framework can
+     *                                           fake the wait; defaults to usleep() itself.
      */
     public function __construct(?callable $sleep = null)
     {
-        $this->sleep = $sleep === null
-            ? static function (int $ms): void {
-                usleep($ms * 1000);
-            }
-        : \Closure::fromCallable($sleep);
+        $this->sleep = $sleep === null ? usleep(...) : \Closure::fromCallable($sleep);
     }
 
     /**
@@ -46,7 +45,7 @@ final class RetryMiddleware
                 $response = $next($current);
             } catch (TransportException $error) {
                 if ($attempt < $policy->maxAttempts && $policy->shouldRetry($current, null, $error)) {
-                    ($this->sleep)($policy->delayMs);
+                    $this->wait($policy);
 
                     continue;
                 }
@@ -58,7 +57,12 @@ final class RetryMiddleware
                 return $response;
             }
 
-            ($this->sleep)($policy->delayMs);
+            $this->wait($policy);
         }
+    }
+
+    private function wait(RetryPolicy $policy): void
+    {
+        ($this->sleep)($policy->delayMs * 1000);
     }
 }

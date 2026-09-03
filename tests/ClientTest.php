@@ -467,6 +467,28 @@ class ClientTest extends TestCase
         $this->assertSame(250, $sent->retryPolicy->delayMs);
     }
 
+    /**
+     * A host framework fakes time by replacing the sleep call (Laravel's Sleep::fake()),
+     * which cannot reach a usleep() hard-wired inside the SDK: consumer test suites slept
+     * for real, two seconds per retried test at the default delay.
+     */
+    public function test_an_injected_sleeper_receives_microseconds_and_nothing_sleeps_for_real(): void
+    {
+        $fake = new FakeHttpClient(['*' => [FakeHttpClient::json([], 429), FakeHttpClient::json([], 503), FakeHttpClient::json(['ok' => true])]]);
+        $slept = [];
+        $client = new Client(array_merge(self::CONFIG, ['retry_delay' => 1000]), $fake, null, static function (int $microseconds) use (&$slept): void {
+            $slept[] = $microseconds;
+        });
+
+        $start = hrtime(true);
+        $response = $client->makeRequest('GET', 'workspace');
+
+        $this->assertSame(['ok' => true], $response->json());
+        $this->assertSame(3, $response->attempt());
+        $this->assertSame([1_000_000, 1_000_000], $slept, 'retry_delay is milliseconds; the sleeper gets microseconds, the unit of usleep() and Sleep::usleep().');
+        $this->assertLessThan(500, (hrtime(true) - $start) / 1e6, 'With a sleeper injected, the client must not sleep for real.');
+    }
+
     public function test_a_transport_failure_that_survives_every_attempt_is_a_transport_exception(): void
     {
         $client = $this->client(['*' => FakeHttpClient::failedConnection('Connection refused')], ['retry_delay' => 0], $fake);

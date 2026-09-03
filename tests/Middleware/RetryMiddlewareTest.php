@@ -19,8 +19,8 @@ class RetryMiddlewareTest extends TestCase
 
     private function middleware(): RetryMiddleware
     {
-        return new RetryMiddleware(function (int $ms): void {
-            $this->sleeps[] = $ms;
+        return new RetryMiddleware(function (int $microseconds): void {
+            $this->sleeps[] = $microseconds;
         });
     }
 
@@ -44,7 +44,7 @@ class RetryMiddlewareTest extends TestCase
         $this->assertSame(200, $response->status());
         $this->assertSame(2, $response->attempt());
         $fake->assertSentCount(2);
-        $this->assertSame([1000], $this->sleeps);
+        $this->assertSame([1_000_000], $this->sleeps, 'The sleeper receives microseconds, the unit of usleep() and of Laravel\'s Sleep::usleep().');
     }
 
     public function test_interactive_does_not_retry_a_401(): void
@@ -63,7 +63,7 @@ class RetryMiddlewareTest extends TestCase
         $this->assertSame(200, $response->status());
         $this->assertSame(3, $response->attempt());
         $fake->assertSentCount(3);
-        $this->assertSame([250, 250], $this->sleeps);
+        $this->assertSame([250_000, 250_000], $this->sleeps);
     }
 
     public function test_the_last_response_is_returned_when_attempts_run_out(): void
@@ -73,7 +73,7 @@ class RetryMiddlewareTest extends TestCase
         $this->assertSame(502, $response->status());
         $this->assertSame(3, $response->json()['n']);
         $fake->assertSentCount(3);
-        $this->assertSame([10, 10], $this->sleeps);
+        $this->assertSame([10_000, 10_000], $this->sleeps);
     }
 
     public function test_transport_failures_are_retried_and_the_last_one_is_thrown(): void
@@ -92,7 +92,7 @@ class RetryMiddlewareTest extends TestCase
         }
 
         $fake->assertSentCount(3);
-        $this->assertSame([100, 100], $this->sleeps);
+        $this->assertSame([100_000, 100_000], $this->sleeps);
     }
 
     public function test_a_single_attempt_policy_never_retries(): void

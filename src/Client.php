@@ -46,8 +46,12 @@ class Client
      * @param  array{api_key?: string, secret_key?: string, base_url?: string, version?: string, timeout?: int, retry_attempts?: int, retry_delay?: int, download_retry_attempts?: int}  $config
      * @param  HttpClient|null  $transport  defaults to CurlHttpClient
      * @param  ExceptionFactory|null  $exceptions  defaults to the SDK's own exception classes
+     * @param  callable(int): void|null  $sleep  waits between retry attempts; receives microseconds and
+     *                                           defaults to usleep(). A host framework passes its own
+     *                                           (Laravel: `Sleep::usleep(...)`) so its test fakes cover
+     *                                           the wait instead of the suite sleeping for real.
      */
-    public function __construct(#[\SensitiveParameter] array $config, ?HttpClient $transport = null, ?ExceptionFactory $exceptions = null)
+    public function __construct(#[\SensitiveParameter] array $config, ?HttpClient $transport = null, ?ExceptionFactory $exceptions = null, ?callable $sleep = null)
     {
         $this->config = array_merge([
             'version' => 'v1',
@@ -64,7 +68,7 @@ class Client
 
         $this->transport = $transport ?? new CurlHttpClient;
         $this->sign = new SignMiddleware((string) $this->config['api_key'], new Signer((string) $this->config['secret_key']));
-        $this->pipeline = new Pipeline($this->transport, $this->sign, new RetryMiddleware);
+        $this->pipeline = new Pipeline($this->transport, $this->sign, new RetryMiddleware($sleep));
     }
 
     public function workspace(): WorkspaceResource
