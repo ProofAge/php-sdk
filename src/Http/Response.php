@@ -75,16 +75,33 @@ final class Response
         return $this->body->getContents();
     }
 
-    /** json_decode(body(), true); null on an empty or invalid body. */
-    public function json(): mixed
+    /**
+     * json_decode(body(), true), or with $key the value at that dot path inside it
+     * (`error.code`, `errors.file.0`), $default when any segment is missing. Null on an
+     * empty or invalid body.
+     *
+     * The signature mirrors Illuminate\Http\Client\Response::json($key, $default) because
+     * PHP ignores extra arguments: without the parameters, code ported from the Laravel
+     * client that reads `$response->json('error.code')` silently got the whole document.
+     */
+    public function json(?string $key = null, mixed $default = null): mixed
     {
         $body = $this->body();
+        $decoded = $body === '' ? null : json_decode($body, true);
 
-        if ($body === '') {
-            return null;
+        if ($key === null) {
+            return $decoded;
         }
 
-        return json_decode($body, true);
+        foreach (explode('.', $key) as $segment) {
+            if (! is_array($decoded) || ! array_key_exists($segment, $decoded)) {
+                return $default;
+            }
+
+            $decoded = $decoded[$segment];
+        }
+
+        return $decoded;
     }
 
     public function getBody(): StreamInterface

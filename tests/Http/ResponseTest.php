@@ -72,6 +72,42 @@ class ResponseTest extends TestCase
         $this->assertNull($this->response(200, 'not json')->json());
     }
 
+    /**
+     * Illuminate\Http\Client\Response::json($key, $default) takes a dot path, and PHP
+     * ignores extra arguments, so before this `$response->json('error.code')` silently
+     * returned the whole document instead of the value.
+     */
+    public function test_json_with_a_dot_path_returns_the_nested_value(): void
+    {
+        $response = $this->response(404, '{"error":{"code":"MEDIA_NOT_FOUND","message":"Media not found"},"errors":{"file":["required","image"]},"n":null}');
+
+        $this->assertSame('MEDIA_NOT_FOUND', $response->json('error.code'));
+        $this->assertSame(['code' => 'MEDIA_NOT_FOUND', 'message' => 'Media not found'], $response->json('error'));
+        $this->assertSame('image', $response->json('errors.file.1'));
+        $this->assertNull($response->json('n', 'default'), 'A key that is present with a null value is null, not the default.');
+    }
+
+    public function test_json_with_a_missing_path_returns_the_default(): void
+    {
+        $response = $this->response(200, '{"error":{"code":"X"}}');
+
+        $this->assertNull($response->json('missing'));
+        $this->assertSame('fallback', $response->json('missing', 'fallback'));
+        $this->assertSame('fallback', $response->json('error.code.deeper', 'fallback'), 'Descending into a scalar yields the default.');
+        $this->assertSame('fallback', $this->response(204)->json('anything', 'fallback'));
+        $this->assertSame('fallback', $this->response(200, 'not json')->json('anything', 'fallback'));
+    }
+
+    public function test_json_signature_matches_illuminate(): void
+    {
+        $method = new \ReflectionMethod(Response::class, 'json');
+        $parameters = array_map(static fn (\ReflectionParameter $p): string => $p->getName(), $method->getParameters());
+
+        $this->assertSame(['key', 'default'], $parameters);
+        $this->assertTrue($method->getParameters()[0]->isDefaultValueAvailable());
+        $this->assertTrue($method->getParameters()[1]->isDefaultValueAvailable());
+    }
+
     public function test_get_body_returns_the_stream(): void
     {
         $stream = ResourceStream::fromString('bytes');
