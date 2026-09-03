@@ -64,7 +64,8 @@ final class WebhookVerifier
             throw new WebhookVerificationException('MISSING_AUTH_CLIENT', 'X-Auth-Client header is required');
         }
 
-        if ($this->apiKey !== $authClient) {
+        // The API key is a credential: compared in constant time, like the signature below.
+        if (! hash_equals($this->apiKey, $authClient)) {
             throw new WebhookVerificationException('INVALID_AUTH_CLIENT', 'X-Auth-Client header is invalid');
         }
 

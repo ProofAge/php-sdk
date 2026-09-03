@@ -105,6 +105,28 @@ class WebhookVerifierTest extends TestCase
             ['INVALID_AUTH_CLIENT', 'X-Auth-Client header is invalid'],
             $this->failure(fn () => $this->verifier()->verify('sig', (string) time(), 'wrong-client', '{}')),
         );
+        $this->assertSame(
+            ['INVALID_AUTH_CLIENT', 'X-Auth-Client header is invalid'],
+            $this->failure(fn () => $this->verifier()->verify('sig', (string) time(), self::API_KEY.'x', '{}')),
+        );
+        $this->assertSame(
+            ['INVALID_AUTH_CLIENT', 'X-Auth-Client header is invalid'],
+            $this->failure(fn () => $this->verifier()->verify('sig', (string) time(), substr(self::API_KEY, 0, -1), '{}')),
+        );
+    }
+
+    /**
+     * The API key is a credential and is compared in constant time. Timing cannot be
+     * asserted behaviourally, so this pins the call itself: a refactor that brings `!==`
+     * back must change this test on purpose.
+     */
+    public function test_the_api_key_is_compared_with_hash_equals(): void
+    {
+        $source = (string) file_get_contents((string) (new \ReflectionClass(WebhookVerifier::class))->getFileName());
+
+        $this->assertStringContainsString('hash_equals($this->apiKey, $authClient)', $source);
+        $this->assertStringNotContainsString('$this->apiKey !== $authClient', $source);
+        $this->assertStringNotContainsString('$this->apiKey === $authClient', $source);
     }
 
     public function test_timestamp_too_old_or_in_the_future(): void
