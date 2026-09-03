@@ -21,7 +21,7 @@ class WebhookSignatureVerifier
         return ['secretKey' => '[redacted]', 'tolerance' => $this->tolerance];
     }
 
-    public function verify(string $payload, int $timestamp, string $signature): bool
+    public function verify(#[\SensitiveParameter] string $payload, int $timestamp, string $signature): bool
     {
         $expected = $this->generateSignature($payload, $timestamp);
 
@@ -41,7 +41,7 @@ class WebhookSignatureVerifier
         return abs(time() - $timestamp) <= $this->tolerance;
     }
 
-    public function generateSignature(string $payload, int $timestamp): string
+    public function generateSignature(#[\SensitiveParameter] string $payload, int $timestamp): string
     {
         return hash_hmac('sha256', $timestamp.'.'.$payload, $this->secretKey);
     }

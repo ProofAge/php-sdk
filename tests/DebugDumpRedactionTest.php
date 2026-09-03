@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use ProofAge\Sdk\Client;
 use ProofAge\Sdk\Exceptions\ProofAgeException;
 use ProofAge\Sdk\Exceptions\TransportException;
+use ProofAge\Sdk\Exceptions\WebhookVerificationException;
 use ProofAge\Sdk\Http\Body\FilePart;
 use ProofAge\Sdk\Http\Body\MultipartBody;
 use ProofAge\Sdk\Http\Body\RawBody;
@@ -220,5 +221,45 @@ class DebugDumpRedactionTest extends TestCase
 
         $this->assertSame(['ok' => true], $client->makeRequest('GET', 'workspace')->json());
         $this->assertSame(self::API_KEY, $fake->sent()[0]->header('X-API-Key'));
+    }
+
+    public function test_webhook_verification_does_not_leave_the_inbound_key_or_payload_in_the_trace(): void
+    {
+        if (PHP_VERSION_ID < 80200) {
+            $this->markTestSkipped('#[\SensitiveParameter] redacts trace arguments from PHP 8.2; on 8.1 zend.exception_ignore_args=1 is the only protection.');
+        }
+
+        $payload = '{"verification_id":"ver_1","status":"approved","external_metadata":{"seller":"Jürgen"}}';
+        $verifier = new WebhookVerifier(self::API_KEY, self::SECRET);
+
+        try {
+            // A wrong signature: the throw happens inside verify(), so its arguments —
+            // the caller's API key and the whole webhook payload — land in the trace.
+            $verifier->verify(str_repeat('0', 64), (string) time(), self::API_KEY, $payload);
+            $this->fail('Expected a WebhookVerificationException.');
+        } catch (WebhookVerificationException $e) {
+            $this->assertNoSecretIn($e, $payload);
+        }
+    }
+
+    public function test_verify_headers_does_not_leave_the_header_array_in_the_trace(): void
+    {
+        if (PHP_VERSION_ID < 80200) {
+            $this->markTestSkipped('#[\SensitiveParameter] redacts trace arguments from PHP 8.2; on 8.1 zend.exception_ignore_args=1 is the only protection.');
+        }
+
+        $payload = '{"verification_id":"ver_1"}';
+        $verifier = new WebhookVerifier(self::API_KEY, self::SECRET);
+
+        try {
+            $verifier->verifyHeaders([
+                'X-HMAC-Signature' => str_repeat('0', 64),
+                'X-Timestamp' => (string) time(),
+                'X-Auth-Client' => self::API_KEY,
+            ], $payload);
+            $this->fail('Expected a WebhookVerificationException.');
+        } catch (WebhookVerificationException $e) {
+            $this->assertNoSecretIn($e, $payload);
+        }
     }
 }

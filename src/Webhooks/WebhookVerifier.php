@@ -50,8 +50,12 @@ final class WebhookVerifier
      * @throws WebhookVerificationException with, in this order: MISSING_SIGNATURE, MISSING_TIMESTAMP,
      *                                      MISSING_AUTH_CLIENT, INVALID_AUTH_CLIENT, TIMESTAMP_TOO_OLD, INVALID_SIGNATURE
      */
-    public function verify(?string $signature, ?string $timestamp, ?string $authClient, string $rawBody): void
-    {
+    public function verify(
+        ?string $signature,
+        ?string $timestamp,
+        #[\SensitiveParameter] ?string $authClient,
+        #[\SensitiveParameter] string $rawBody,
+    ): void {
         if (! $signature) {
             throw new WebhookVerificationException('MISSING_SIGNATURE', 'X-HMAC-Signature header is required');
         }
@@ -87,7 +91,7 @@ final class WebhookVerifier
      *
      * @throws WebhookVerificationException
      */
-    public function verifyHeaders(array $headers, string $rawBody): void
+    public function verifyHeaders(#[\SensitiveParameter] array $headers, #[\SensitiveParameter] string $rawBody): void
     {
         $this->verify(
             self::header($headers, 'X-HMAC-Signature'),

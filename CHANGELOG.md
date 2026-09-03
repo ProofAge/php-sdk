@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.3 - 2026-09-03
+
+### Fixed
+
+- The API key and the webhook payload no longer reach an exception's stack trace.
+  `WebhookVerifier::verify()` and `verifyHeaders()` took the caller's `X-Auth-Client`
+  value and the raw body as ordinary arguments, so PHP recorded them in the trace
+  frame and `print_r($e)` in a log printed both; `WebhookSignatureVerifier::verify()`
+  and `generateSignature()` did the same with the payload. Those parameters are now
+  marked `#[\SensitiveParameter]`.
+  Note that the attribute takes effect from PHP 8.2. On 8.1, which this package still
+  supports, it is ignored and `zend.exception_ignore_args=1` remains the only
+  protection — see the README.
+
 ## 0.1.2 - 2026-09-03
 
 Fixes from an adversarial review of 0.1.1. Each was reproduced by running code before it was fixed.
