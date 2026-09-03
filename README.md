@@ -40,10 +40,13 @@ Every request is signed with `X-API-Key` and `X-HMAC-Signature`; you never touch
 | `secret_key` | required | Workspace secret key, used only to sign |
 | `base_url` | required | `https://api.proofage.xyz`; must have no path component |
 | `version` | `v1` | API version segment |
-| `timeout` | `30` | Seconds per attempt |
+| `timeout` | `30` | Seconds per attempt; a positive integer (sub-second timeouts are not supported) |
 | `retry_attempts` | `3` | Attempts for interactive requests; a transport failure, a 429 or a 5xx earns another one |
-| `retry_delay` | `1000` | Milliseconds between attempts, constant |
+| `retry_delay` | `1000` | Milliseconds between attempts, constant; an integer, 0 allowed |
 | `download_retry_attempts` | `1` | Attempts for media downloads; only a transport failure is retried, never an HTTP status |
+
+The four numeric settings must be integers (integer-valued strings such as `getenv()` returns are
+accepted); a float or anything else throws `ProofAgeException` at construction.
 
 ## Resources
 

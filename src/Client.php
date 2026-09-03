@@ -288,6 +288,34 @@ class Client
         if (empty($this->config['base_url'])) {
             throw $this->exceptions->configuration('Base URL is required');
         }
+
+        foreach (['timeout' => 1, 'retry_attempts' => 0, 'retry_delay' => 0, 'download_retry_attempts' => 0] as $key => $minimum) {
+            $this->config[$key] = $this->integerSetting($key, $minimum);
+        }
+    }
+
+    /**
+     * An integer, or an integer-valued string as getenv() hands them over, at or above
+     * $minimum. A float is rejected rather than truncated: `timeout => 0.5` used to become
+     * (int) 0, which cURL reads as "no timeout", so a caller asking for half a second
+     * waited forever. Zero attempts stay accepted and clamp to one, as they always have.
+     */
+    private function integerSetting(string $key, int $minimum): int
+    {
+        $value = $this->config[$key] ?? null;
+
+        if (is_string($value) && preg_match('/^\d+$/', $value) === 1) {
+            $value = (int) $value;
+        }
+
+        if (! is_int($value) || $value < $minimum) {
+            $shown = is_scalar($value) || $value === null ? var_export($value, true) : get_debug_type($value);
+            $expected = $minimum > 0 ? 'a positive integer' : 'a non-negative integer';
+
+            throw $this->exceptions->configuration("{$key} must be {$expected}, {$shown} given");
+        }
+
+        return $value;
     }
 
     protected function handleResponse(Response $response): Response

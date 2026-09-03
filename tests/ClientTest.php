@@ -548,6 +548,50 @@ class ClientTest extends TestCase
         $this->assertSame(1, $fake->sent()[1]->retryPolicy->maxAttempts);
     }
 
+    /** @return iterable<string, array{string, mixed}> */
+    public static function settingsThatAreNotPositiveIntegers(): iterable
+    {
+        // `timeout => 0.5` became (int) 0, which cURL reads as "no timeout": a caller asking
+        // for half a second got forever.
+        yield 'timeout float' => ['timeout', 0.5];
+        yield 'timeout zero' => ['timeout', 0];
+        yield 'timeout negative' => ['timeout', -1];
+        yield 'timeout word' => ['timeout', 'abc'];
+        yield 'timeout float string' => ['timeout', '0.5'];
+        yield 'timeout bool' => ['timeout', true];
+        yield 'timeout null' => ['timeout', null];
+        yield 'retry_attempts float' => ['retry_attempts', 1.5];
+        yield 'retry_attempts negative' => ['retry_attempts', -1];
+        yield 'retry_delay float' => ['retry_delay', 1.5];
+        yield 'retry_delay negative' => ['retry_delay', -1];
+        yield 'download_retry_attempts word' => ['download_retry_attempts', 'x'];
+    }
+
+    #[DataProvider('settingsThatAreNotPositiveIntegers')]
+    public function test_a_timeout_or_retry_setting_that_is_not_an_integer_is_rejected_at_construction(string $key, mixed $value): void
+    {
+        try {
+            new Client(array_merge(self::CONFIG, [$key => $value]), new FakeHttpClient);
+            $this->fail('Expected a ProofAgeException.');
+        } catch (ProofAgeException $e) {
+            $this->assertStringContainsString($key, $e->getMessage());
+            $this->assertStringContainsString('integer', $e->getMessage());
+        }
+    }
+
+    public function test_integer_valued_strings_from_the_environment_are_accepted_as_integers(): void
+    {
+        $client = $this->client(['*' => FakeHttpClient::json([])], ['timeout' => '7', 'retry_attempts' => '2', 'retry_delay' => '0', 'download_retry_attempts' => '2'], $fake);
+
+        $client->makeRequest('GET', 'workspace');
+        $client->makeStreamedRequest('GET', 'verifications/ver_1/media/med_1');
+
+        $this->assertSame(7, $fake->sent()[0]->timeout);
+        $this->assertSame(2, $fake->sent()[0]->retryPolicy->maxAttempts);
+        $this->assertSame(0, $fake->sent()[0]->retryPolicy->delayMs);
+        $this->assertSame(2, $fake->sent()[1]->retryPolicy->maxAttempts);
+    }
+
     public function test_timeout_and_retry_config_reach_the_request(): void
     {
         $client = $this->client(['*' => FakeHttpClient::json([])], ['timeout' => 7, 'retry_attempts' => 5, 'retry_delay' => 250], $fake);
