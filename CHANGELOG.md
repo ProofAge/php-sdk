@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.2 - 2026-09-03
 
 Fixes from an adversarial review of 0.1.1. Each was reproduced by running code before it was fixed.
 
