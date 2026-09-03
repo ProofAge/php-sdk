@@ -7,9 +7,19 @@ namespace ProofAge\Sdk\Webhooks;
 class WebhookSignatureVerifier
 {
     public function __construct(
-        protected string $secretKey,
+        #[\SensitiveParameter] protected string $secretKey,
         protected int $tolerance = 300,
     ) {}
+
+    /**
+     * print_r() and var_dump() never see the secret. var_export() and reflection bypass this.
+     *
+     * @return array{secretKey: string, tolerance: int}
+     */
+    public function __debugInfo(): array
+    {
+        return ['secretKey' => '[redacted]', 'tolerance' => $this->tolerance];
+    }
 
     public function verify(string $payload, int $timestamp, string $signature): bool
     {

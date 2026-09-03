@@ -111,6 +111,19 @@ try {
 
 Missing verification IDs and missing files throw `\InvalidArgumentException`.
 
+### Dumping SDK objects
+
+`print_r()` and `var_dump()` of a client, a request, a response or an SDK exception — including
+the exception's trace with `zend.exception_ignore_args=0` — never show the secret key, show the
+API key masked to its last four characters, and show request bodies and uploaded files as sizes
+and sha256 hashes. So `error_log(print_r($e, true))` in a catch block is safe.
+
+That protection comes from `__debugInfo()`, which `var_export()`, `(array)` casts, reflection and
+Symfony's VarDumper (Laravel's `dd()` / `dump()`) do not honour or only merge with the real
+properties. Do not point those at a `Client`, `Signer`, `Request` or `WebhookVerifier`. On PHP
+8.1, where `#[\SensitiveParameter]` does not exist, a failure inside the `Client` constructor
+still leaves the config array in the trace unless `zend.exception_ignore_args=1`.
+
 ## Webhooks
 
 ProofAge signs every delivery with `X-Auth-Client`, `X-Timestamp` and `X-HMAC-Signature`

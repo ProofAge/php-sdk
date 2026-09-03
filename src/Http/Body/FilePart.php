@@ -28,6 +28,23 @@ final class FilePart
     }
 
     /**
+     * print_r() and var_dump() show the size and sha256 of the contents, never the
+     * contents: they are a document photo or a selfie.
+     *
+     * @return array{name: string, filename: string, contentType: string|null, bytes: int, sha256: string}
+     */
+    public function __debugInfo(): array
+    {
+        return [
+            'name' => $this->name,
+            'filename' => $this->filename,
+            'contentType' => $this->contentType,
+            'bytes' => strlen($this->contents),
+            'sha256' => $this->sha256(),
+        ];
+    }
+
+    /**
      * string path   -> basename(path)
      * \SplFileInfo  -> getRealPath(); filename from getClientOriginalName() when the object has it
      *                  (Illuminate\Http\UploadedFile and Symfony's), else getFilename()

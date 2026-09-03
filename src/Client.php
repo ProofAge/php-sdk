@@ -47,7 +47,7 @@ class Client
      * @param  HttpClient|null  $transport  defaults to CurlHttpClient
      * @param  ExceptionFactory|null  $exceptions  defaults to the SDK's own exception classes
      */
-    public function __construct(array $config, ?HttpClient $transport = null, ?ExceptionFactory $exceptions = null)
+    public function __construct(#[\SensitiveParameter] array $config, ?HttpClient $transport = null, ?ExceptionFactory $exceptions = null)
     {
         $this->config = array_merge([
             'version' => 'v1',
@@ -196,6 +196,33 @@ class Client
     public function transport(): HttpClient
     {
         return $this->transport;
+    }
+
+    /**
+     * What print_r() and var_dump() show. `error_log(print_r($client, true))` is routine
+     * in a catch block, so the secret never appears and the API key is masked the way the
+     * events mask it. var_export(), reflection and Symfony's VarDumper bypass this.
+     *
+     * @return array<string, mixed>
+     */
+    public function __debugInfo(): array
+    {
+        $config = $this->config;
+
+        if (isset($config['api_key'])) {
+            $config['api_key'] = Events\Redactor::apiKey((string) $config['api_key']);
+        }
+
+        if (array_key_exists('secret_key', $config)) {
+            $config['secret_key'] = Events\Redactor::REDACTED;
+        }
+
+        return [
+            'config' => $config,
+            'transport' => $this->transport,
+            'pipeline' => $this->pipeline,
+            'exceptions' => $this->exceptions,
+        ];
     }
 
     protected function validateConfig(): void

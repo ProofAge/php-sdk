@@ -18,7 +18,17 @@ use ProofAge\Sdk\Http\Request;
  */
 final class Signer
 {
-    public function __construct(private readonly string $secretKey) {}
+    public function __construct(#[\SensitiveParameter] private readonly string $secretKey) {}
+
+    /**
+     * print_r() and var_dump() never see the secret. var_export() and reflection bypass this.
+     *
+     * @return array<string, string>
+     */
+    public function __debugInfo(): array
+    {
+        return ['secretKey' => '[redacted]'];
+    }
 
     /**
      * Dispatches on the body type: RawBody and no body use the raw form, MultipartBody the multipart form.

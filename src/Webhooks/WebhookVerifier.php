@@ -21,8 +21,8 @@ final class WebhookVerifier
     private readonly WebhookSignatureVerifier $signatures;
 
     public function __construct(
-        private readonly string $apiKey,
-        string $secretKey,
+        #[\SensitiveParameter] private readonly string $apiKey,
+        #[\SensitiveParameter] string $secretKey,
         int $tolerance = 300,
     ) {
         if ($apiKey === '') {
@@ -34,6 +34,16 @@ final class WebhookVerifier
         }
 
         $this->signatures = new WebhookSignatureVerifier($secretKey, $tolerance);
+    }
+
+    /**
+     * print_r() and var_dump() show the API key masked; the signature verifier masks the secret.
+     *
+     * @return array{apiKey: string, signatures: WebhookSignatureVerifier}
+     */
+    public function __debugInfo(): array
+    {
+        return ['apiKey' => '****'.substr($this->apiKey, -4), 'signatures' => $this->signatures];
     }
 
     /**

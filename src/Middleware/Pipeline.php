@@ -42,8 +42,13 @@ final class Pipeline
 
     public function send(Request $request): Response
     {
-        $transport = fn (Request $request): Response => $this->transport->send($request);
-        $handler = fn (Request $request): Response => $this->sign->handle($request, $transport);
+        // Static closures capturing only what they call: a closure bound to $this would
+        // carry the pipeline, and through it the signer and its secret, into any exception
+        // trace that records frame arguments (zend.exception_ignore_args=0, PHP's default).
+        $transport = $this->transport;
+        $sign = $this->sign;
+        $send = static fn (Request $request): Response => $transport->send($request);
+        $handler = static fn (Request $request): Response => $sign->handle($request, $send);
 
         foreach (array_reverse($this->middleware) as $entry) {
             $next = $handler;

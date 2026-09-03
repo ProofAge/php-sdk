@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ProofAge\Sdk\Middleware;
 
 use ProofAge\Sdk\Events\ErrorEvent;
+use ProofAge\Sdk\Events\Redactor;
 use ProofAge\Sdk\Events\RequestEvent;
 use ProofAge\Sdk\Events\ResponseEvent;
 use ProofAge\Sdk\Exceptions\TransportException;
@@ -30,9 +31,29 @@ final class SignMiddleware
     private array $onError = [];
 
     public function __construct(
-        private readonly string $apiKey,
+        #[\SensitiveParameter] private readonly string $apiKey,
         private readonly Signer $signer,
     ) {}
+
+    /**
+     * What print_r() and var_dump() show: the API key masked, the signer (which masks its
+     * own secret), and listener counts rather than the listeners, whose captured state is
+     * the consumer's business and can be arbitrarily large.
+     *
+     * @return array<string, mixed>
+     */
+    public function __debugInfo(): array
+    {
+        return [
+            'apiKey' => Redactor::apiKey($this->apiKey),
+            'signer' => $this->signer,
+            'listeners' => [
+                'onRequest' => count($this->onRequest),
+                'onResponse' => count($this->onResponse),
+                'onError' => count($this->onError),
+            ],
+        ];
+    }
 
     /** @param callable(RequestEvent): void $listener */
     public function onRequest(callable $listener): self

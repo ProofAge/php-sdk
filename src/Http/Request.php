@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ProofAge\Sdk\Http;
 
+use ProofAge\Sdk\Events\Redactor;
 use ProofAge\Sdk\Http\Body\MultipartBody;
 use ProofAge\Sdk\Http\Body\RawBody;
 
@@ -71,6 +72,30 @@ final class Request
     public function withAttempt(int $attempt): static
     {
         return new self($this->method, $this->url, $this->path, $this->headers, $this->body, $this->retryPolicy, $this->timeout, $this->sink, $this->stream, $attempt);
+    }
+
+    /**
+     * What print_r() and var_dump() show: X-API-Key and X-HMAC-Signature masked as the
+     * events mask them, and the body reduced to sizes and hashes. A request reaches a dump
+     * through every SDK exception's trace and through getResponse()->request, so this is
+     * where the plaintext key and an uploaded selfie would otherwise leak into a log.
+     *
+     * @return array<string, mixed>
+     */
+    public function __debugInfo(): array
+    {
+        return [
+            'method' => $this->method,
+            'url' => $this->url,
+            'path' => $this->path,
+            'headers' => Redactor::headers($this->headers),
+            'body' => $this->body,
+            'retryPolicy' => $this->retryPolicy,
+            'timeout' => $this->timeout,
+            'sink' => $this->sink,
+            'stream' => $this->stream,
+            'attempt' => $this->attempt,
+        ];
     }
 
     /** Case-insensitive lookup. */

@@ -19,6 +19,15 @@ use ProofAge\Sdk\Http\Body\RawBody;
  */
 final class Redactor
 {
+    /** What a secret is replaced with in a dump: never the value, never a hint of its length. */
+    public const REDACTED = '[redacted]';
+
+    /** The API key as the events and __debugInfo() show it: its last four characters. */
+    public static function apiKey(string $key): string
+    {
+        return '****'.substr($key, -4);
+    }
+
     /**
      * @param  array<string, string>  $headers
      * @return array<string, string>
@@ -27,7 +36,7 @@ final class Redactor
     {
         foreach ($headers as $name => $value) {
             if (strcasecmp($name, 'X-API-Key') === 0) {
-                $headers[$name] = '****'.substr($value, -4);
+                $headers[$name] = self::apiKey($value);
             } elseif (strcasecmp($name, 'X-HMAC-Signature') === 0) {
                 $headers[$name] = substr($value, 0, 8).'...';
             }
