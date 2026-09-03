@@ -333,6 +333,19 @@ class VerificationResourceTest extends TestCase
         });
     }
 
+    public function test_download_media_can_be_called_twice_against_the_same_fake_route(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/v1/verifications/ver_1/media/*' => FakeHttpClient::raw('binary-image-bytes'),
+        ]);
+
+        $first = $client->verifications('ver_1')->downloadMedia('med_1')->getContents();
+        $second = $client->verifications('ver_1')->downloadMedia('med_2')->getContents();
+
+        $this->assertSame('binary-image-bytes', $first);
+        $this->assertSame('binary-image-bytes', $second, 'A second download in a consumer test used to come back empty.');
+    }
+
     public function test_download_media_signs_the_path_with_an_empty_body(): void
     {
         $client = $this->makeFakedClient([

@@ -165,4 +165,26 @@ class FakeHttpClientTest extends TestCase
         $this->assertSame(['ok' => true], $first->json());
         $this->assertSame(['ok' => true], $second->json());
     }
+
+    /**
+     * downloadMedia() hands the stream itself to the caller, who reads it to the end and
+     * may close it. One shared stream instance meant the second hit on a route returned
+     * an empty string.
+     */
+    public function test_each_hit_gets_its_own_stream(): void
+    {
+        $fake = new FakeHttpClient(['*' => FakeHttpClient::raw('binary-image-bytes', 200, ['Content-Type' => 'image/jpeg'])]);
+
+        $first = $fake->send($this->request('https://x.test/'))->getBody();
+        $this->assertSame('binary-image-bytes', $first->getContents(), 'Read to the end without rewinding, as a consumer does.');
+        $first->close();
+
+        $second = $fake->send($this->request('https://x.test/'))->getBody();
+        $this->assertNotSame($first, $second);
+        $this->assertSame('binary-image-bytes', $second->getContents());
+
+        $third = $fake->send($this->request('https://x.test/'));
+        $this->assertSame('binary-image-bytes', $third->body());
+        $this->assertSame('image/jpeg', $third->header('Content-Type'));
+    }
 }

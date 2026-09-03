@@ -161,13 +161,21 @@ final class FakeHttpClient implements HttpClient
         };
     }
 
+    /**
+     * Every hit gets its own stream over a copy of the stored body. The stored Response
+     * is a template that may answer many times, and downloadMedia() hands the stream
+     * itself to the caller, who reads it to the end and may close it; sharing one
+     * instance made the second hit come back empty.
+     */
     private function deliver(Response $response, Request $request): Response
     {
+        $bytes = $response->body();
+
         if ($request->sink === null) {
-            return $response->withRequest($request);
+            return new Response($response->status, $response->headers, ResourceStream::fromString($bytes), $request);
         }
 
-        if (file_put_contents($request->sink, $response->body()) === false) {
+        if (file_put_contents($request->sink, $bytes) === false) {
             throw new \RuntimeException("Could not write to sink {$request->sink}");
         }
 
