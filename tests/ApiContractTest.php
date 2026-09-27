@@ -59,9 +59,7 @@ class ApiContractTest extends TestCase
                 continue;
             }
 
-            $specFields = $this->schemaProperties(
-                $this->spec['paths'][$op['path']][strtolower($op['method'])]['requestBody']['content']['application/json']['schema'] ?? []
-            );
+            $specFields = $this->schemaProperties($this->requestSchema($op['path'], $op['method']));
             sort($specFields);
             $mapFields = $op['request'];
             sort($mapFields);
@@ -70,15 +68,26 @@ class ApiContractTest extends TestCase
         }
     }
 
+    public function test_the_upload_request_is_multipart(): void
+    {
+        $content = $this->spec['paths']['/verifications/{verification}/media']['post']['requestBody']['content'] ?? [];
+
+        $this->assertSame(['multipart/form-data'], array_keys($content), 'uploadMedia() sends multipart/form-data; the spec must say so.');
+    }
+
     public function test_response_fields_match_the_spec_for_describable_endpoints(): void
     {
         $checked = [];
 
         foreach (ApiContractMap::operations() as $name => $op) {
+            if ($op['response'] === null) {
+                continue;
+            }
+
             $specFields = $this->responseProperties($op['path'], $op['method']);
 
             if ($specFields === []) {
-                // Scramble cannot describe this response (typed as integer/empty array).
+                // The spec does not describe a JSON body here (the media download's bytes).
                 // Its shape is pinned by the authored @return PHPDoc + HTTP-fake tests instead.
                 continue;
             }
@@ -93,10 +102,34 @@ class ApiContractTest extends TestCase
 
         sort($checked);
         $this->assertSame(
-            ['verifications.document', 'verifications.estimation', 'verifications.find', 'workspace.get'],
+            ['verifications.acceptConsent', 'verifications.create', 'verifications.document', 'verifications.estimation', 'verifications.find', 'workspace.get', 'workspace.getConsent'],
             $checked,
             'The set of spec-describable response endpoints changed. If the generator improved, extend response parity coverage.'
         );
+    }
+
+    public function test_endpoints_the_sdk_treats_as_bodiless_have_no_json_success_body_in_the_spec(): void
+    {
+        $bodiless = [];
+
+        foreach (ApiContractMap::operations() as $name => $op) {
+            if ($op['response'] !== null) {
+                continue;
+            }
+
+            $bodiless[] = $name;
+            $responses = $this->spec['paths'][$op['path']][strtolower($op['method'])]['responses'] ?? [];
+            $successes = array_filter($responses, static fn (mixed $code): bool => str_starts_with((string) $code, '2'), ARRAY_FILTER_USE_KEY);
+
+            $this->assertNotSame([], $successes, "The spec describes no success response for [{$name}].");
+
+            foreach ($successes as $code => $response) {
+                $this->assertArrayNotHasKey('application/json', $response['content'] ?? [], "The spec gives [{$name}] a JSON {$code} body; the SDK method returns null. Update the method, its @return and the map.");
+            }
+        }
+
+        sort($bodiless);
+        $this->assertSame(['verifications.blockFace', 'verifications.submit', 'verifications.uploadMedia'], $bodiless);
     }
 
     public function test_agents_doc_covers_every_endpoint(): void
@@ -130,7 +163,25 @@ class ApiContractTest extends TestCase
         $this->assertStringContainsString('?{query}', $doc, 'AGENTS.md must document that a normalized query string is part of the signed path.');
     }
 
-    /** @return list<string> */
+    /**
+     * The request body schema, whichever of JSON or multipart the spec declares.
+     *
+     * @return array<string, mixed>
+     */
+    private function requestSchema(string $path, string $method): array
+    {
+        $content = $this->spec['paths'][$path][strtolower($method)]['requestBody']['content'] ?? [];
+
+        return $content['application/json']['schema'] ?? $content['multipart/form-data']['schema'] ?? [];
+    }
+
+    /**
+     * Top-level fields of the first 2xx JSON body the spec describes with properties. A
+     * create answers 201; its 200 entry is an anyOf the SDK never receives (the native
+     * client's compact format), which yields no properties and is passed over.
+     *
+     * @return list<string>
+     */
     private function responseProperties(string $path, string $method): array
     {
         $responses = $this->spec['paths'][$path][strtolower($method)]['responses'] ?? [];
@@ -144,7 +195,11 @@ class ApiContractTest extends TestCase
                 continue;
             }
 
-            return $this->schemaProperties($schema);
+            $properties = $this->schemaProperties($schema);
+
+            if ($properties !== []) {
+                return $properties;
+            }
         }
 
         return [];

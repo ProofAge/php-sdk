@@ -14,7 +14,10 @@ class ApiContractMap
      * response sets are the authoritative (authored) contract and double as the source
      * for the `@return` PHPDoc shapes and AGENTS.md.
      *
-     * @return array<string, array{method: string, path: string, operationId: string, request: list<string>, response: list<string>}>
+     * `response` is null when the API answers 2xx with no body at all (the method returns
+     * null), and `[]` when the body is not JSON (the media download's bytes).
+     *
+     * @return array<string, array{method: string, path: string, operationId: string, request: list<string>, response: list<string>|null}>
      */
     public static function operations(): array
     {
@@ -31,13 +34,13 @@ class ApiContractMap
             ],
             'verifications.create' => [
                 'method' => 'POST', 'path' => '/verifications', 'operationId' => 'createVerification',
-                'request' => ['fingerprint', 'callback_url', 'external_id', 'external_metadata', 'metadata'],
-                'response' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'consent_accepted_at', 'created_at', 'updated_at', 'url'],
+                'request' => ['fingerprint', 'callback_url', 'external_id', 'external_metadata', 'metadata', 'page_url'],
+                'response' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at', 'url'],
             ],
             'verifications.find' => [
                 'method' => 'GET', 'path' => '/verifications/{verification}', 'operationId' => 'getVerification',
                 'request' => [],
-                'response' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'consent_accepted_at', 'created_at', 'updated_at', 'duplicate_check'],
+                'response' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at'],
             ],
             'verifications.acceptConsent' => [
                 'method' => 'POST', 'path' => '/verifications/{verification}/consent', 'operationId' => 'acceptConsent',
@@ -47,12 +50,12 @@ class ApiContractMap
             'verifications.uploadMedia' => [
                 'method' => 'POST', 'path' => '/verifications/{verification}/media', 'operationId' => 'uploadMedia',
                 'request' => ['file', 'type', 'side', 'document', 'fingerprint', 'head_turn_step', 'capture_resolution', 'device_info', 'liveness_telemetry'],
-                'response' => ['message'],
+                'response' => null,
             ],
             'verifications.submit' => [
                 'method' => 'POST', 'path' => '/verifications/{verification}/submit', 'operationId' => 'submitVerification',
                 'request' => [],
-                'response' => ['message'],
+                'response' => null,
             ],
             'verifications.document' => [
                 'method' => 'GET', 'path' => '/verifications/{verification}/document', 'operationId' => 'getVerificationDocument',
@@ -72,7 +75,7 @@ class ApiContractMap
             'verifications.blockFace' => [
                 'method' => 'POST', 'path' => '/verifications/{verification}/blocked-face', 'operationId' => 'blockVerificationFace',
                 'request' => ['reason', 'reason_code'],
-                'response' => [],
+                'response' => null,
             ],
         ];
     }

@@ -38,6 +38,12 @@
   (`base_url` is required) and no longer says webhooks go to `callback_url`: they go to the
   workspace's webhook URL and are signed with its active secret key. The `downloadMedia()` docblock
   no longer mentions the removed `media[].signed_url`.
+- `resources/openapi.json` is refreshed from the API: its server is `https://api.proofage.xyz/v1`
+  (was `.com`), `uploadMedia` is `multipart/form-data`, and it describes the real responses of
+  create (201, 402), consent, upload and submit (200, empty body) and the `erasure` field. The
+  contract test now checks the create, consent and getConsent responses too, reads multipart
+  request schemas, and asserts that the endpoints the SDK treats as bodiless have no JSON success
+  body in the spec.
 - `ProofAgeException` reads every error body the API sends, not only `{"error": {...}}`. A flat
   `{"code", "message"}` (402 `PAYMENT_METHOD_REQUIRED`, the upload quality errors such as 422
   `FACE_NOT_FOUND` and 500 `VALIDATION_SERVICE_UNAVAILABLE`) now gives `getErrorCode()` and

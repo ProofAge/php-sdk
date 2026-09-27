@@ -7,7 +7,7 @@
     },
     "servers": [
         {
-            "url": "https://api.proofage.com/v1",
+            "url": "https://api.proofage.xyz/v1",
             "description": "API"
         }
     ],
@@ -20,7 +20,7 @@
         "/verifications/{verification}/media": {
             "post": {
                 "operationId": "uploadMedia",
-                "description": "Uploads a selfie or document image to the verification session.\nConsent must be accepted before uploading. The file is validated\nfor quality (face detection, blur, brightness for selfies;\ndocument detection, readability for documents).",
+                "description": "Uploads a selfie or document image to the verification session.\nConsent must be accepted before uploading. The file is validated\nfor quality (face detection, blur, brightness for selfies;\ndocument detection, readability for documents).\n\nAnswers `200` with an empty body; a failed quality check answers `422`.",
                 "summary": "Upload media",
                 "tags": [
                     "Media"
@@ -40,7 +40,7 @@
                 "requestBody": {
                     "required": true,
                     "content": {
-                        "application/json": {
+                        "multipart/form-data": {
                             "schema": {
                                 "$ref": "#/components/schemas/UploadMediaRequest"
                             }
@@ -49,12 +49,14 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "",
+                        "description": "The media was stored. The body is empty.",
                         "content": {
-                            "application/json": {
+                            "text/plain": {
                                 "schema": {
-                                    "type": "integer",
-                                    "const": 200
+                                    "type": "string",
+                                    "examples": [
+                                        ""
+                                    ]
                                 }
                             }
                         }
@@ -63,7 +65,32 @@
                         "$ref": "#/components/responses/ModelNotFoundException"
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "description": "The image failed a quality check; the code says which.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "examples": [
+                                        {
+                                            "code": "FACE_NOT_FOUND",
+                                            "message": "Face validation failed. Please upload a clear, well-lit selfie with your face fully visible."
+                                        }
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "string"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "code",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -176,18 +203,267 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "",
+                        "description": "`VerificationResource`",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "integer",
-                                    "const": 201
+                                    "anyOf": [
+                                        {
+                                            "$ref": "#/components/schemas/VerificationResource"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "host": {
+                                                    "type": "string"
+                                                },
+                                                "id": {
+                                                    "type": "string"
+                                                },
+                                                "session_token": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "url": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "host",
+                                                "id",
+                                                "session_token",
+                                                "url"
+                                            ]
+                                        }
+                                    ]
                                 }
                             }
                         }
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "201": {
+                        "description": "The verification session, with the url the person opens to complete it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "examples": [
+                                        {
+                                            "id": "550e8400-e29b-41d4-a716-446655440000",
+                                            "external_id": "user-123",
+                                            "external_metadata": {
+                                                "plan": "premium"
+                                            },
+                                            "redirect_url": "https://example.com/callback",
+                                            "status": "created",
+                                            "reason": null,
+                                            "duplicate_check": {
+                                                "checked": false,
+                                                "duplicate_count": 0,
+                                                "duplicates": []
+                                            },
+                                            "erasure": null,
+                                            "consent_accepted_at": null,
+                                            "created_at": "2026-03-19T12:00:00+00:00",
+                                            "updated_at": "2026-03-19T12:00:00+00:00",
+                                            "url": "https://idv.proofage.xyz/v/eyJ..."
+                                        }
+                                    ],
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "external_id": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "external_metadata": {
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ],
+                                            "additionalProperties": {}
+                                        },
+                                        "redirect_url": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "reason": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "duplicate_check": {
+                                            "type": "object",
+                                            "properties": {
+                                                "checked": {
+                                                    "type": "boolean"
+                                                },
+                                                "duplicate_count": {
+                                                    "type": "integer"
+                                                },
+                                                "duplicates": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "verification_id": {
+                                                                "type": "string"
+                                                            },
+                                                            "external_id": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "similarity_score": {
+                                                                "type": "number"
+                                                            },
+                                                            "verified_at": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "verification_id",
+                                                            "external_id",
+                                                            "similarity_score",
+                                                            "verified_at"
+                                                        ]
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "checked",
+                                                "duplicate_count",
+                                                "duplicates"
+                                            ]
+                                        },
+                                        "erasure": {
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ],
+                                            "properties": {
+                                                "erased_at": {
+                                                    "type": "string"
+                                                },
+                                                "scope": {
+                                                    "type": "string"
+                                                },
+                                                "reason": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "requested_via": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "erased_at",
+                                                "scope",
+                                                "reason",
+                                                "requested_via"
+                                            ]
+                                        },
+                                        "consent_accepted_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "created_at": {
+                                            "type": "string"
+                                        },
+                                        "updated_at": {
+                                            "type": "string"
+                                        },
+                                        "url": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "external_id",
+                                        "external_metadata",
+                                        "redirect_url",
+                                        "status",
+                                        "reason",
+                                        "duplicate_check",
+                                        "erasure",
+                                        "consent_accepted_at",
+                                        "created_at",
+                                        "updated_at",
+                                        "url"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "402": {
+                        "description": "A live workspace has no payment method.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "examples": [
+                                        {
+                                            "code": "PAYMENT_METHOD_REQUIRED",
+                                            "message": "A payment method is required to create verifications.",
+                                            "free_verifications_remaining": 0,
+                                            "trial_ends_at": "2026-04-03T12:00:00+00:00",
+                                            "trial_active": false
+                                        }
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "string"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "free_verifications_remaining": {
+                                            "type": "integer"
+                                        },
+                                        "trial_ends_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "trial_active": {
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "required": [
+                                        "code",
+                                        "message",
+                                        "free_verifications_remaining",
+                                        "trial_ends_at",
+                                        "trial_active"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -224,12 +500,29 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "",
+                        "description": "Consent is recorded; media can now be uploaded.",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "integer",
-                                    "const": 200
+                                    "type": "object",
+                                    "examples": [
+                                        {
+                                            "consent_version_id": 1,
+                                            "consent_accepted_at": "2026-03-19T12:01:00+00:00"
+                                        }
+                                    ],
+                                    "properties": {
+                                        "consent_version_id": {
+                                            "type": "integer"
+                                        },
+                                        "consent_accepted_at": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "consent_version_id",
+                                        "consent_accepted_at"
+                                    ]
                                 }
                             }
                         }
@@ -292,6 +585,7 @@
                                                     }
                                                 ]
                                             },
+                                            "erasure": null,
                                             "consent_accepted_at": "2026-03-19T12:01:00+00:00",
                                             "created_at": "2026-03-19T12:00:00+00:00",
                                             "updated_at": "2026-03-19T12:05:00+00:00"
@@ -377,6 +671,38 @@
                                                 "duplicates"
                                             ]
                                         },
+                                        "erasure": {
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ],
+                                            "properties": {
+                                                "erased_at": {
+                                                    "type": "string"
+                                                },
+                                                "scope": {
+                                                    "type": "string"
+                                                },
+                                                "reason": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "requested_via": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "erased_at",
+                                                "scope",
+                                                "reason",
+                                                "requested_via"
+                                            ]
+                                        },
                                         "consent_accepted_at": {
                                             "type": [
                                                 "string",
@@ -398,6 +724,7 @@
                                         "status",
                                         "reason",
                                         "duplicate_check",
+                                        "erasure",
                                         "consent_accepted_at",
                                         "created_at",
                                         "updated_at"
@@ -698,7 +1025,7 @@
         "/verifications/{verification}/submit": {
             "post": {
                 "operationId": "submitVerification",
-                "description": "Submits the verification for automated processing. All required media must be uploaded first.\nThe verification must be in `started` status with the required media attached.",
+                "description": "Submits the verification for automated processing. All required media must be uploaded first.\nThe verification must be in `started` status with the required media attached.\n\nAnswers `200` with an empty body; the decision arrives by webhook.",
                 "summary": "Submit verification for processing",
                 "tags": [
                     "Verification"
@@ -717,12 +1044,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "",
+                        "description": "The verification was submitted. The body is empty.",
                         "content": {
-                            "application/json": {
+                            "text/plain": {
                                 "schema": {
-                                    "type": "integer",
-                                    "const": 200
+                                    "type": "string",
+                                    "examples": [
+                                        ""
+                                    ]
                                 }
                             }
                         }
@@ -731,7 +1060,42 @@
                         "$ref": "#/components/responses/ModelNotFoundException"
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "description": "The verification is not in `started` status, or required media is missing.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "examples": [
+                                        {
+                                            "error": {
+                                                "code": "MISSING_REQUIRED_MEDIA",
+                                                "message": "All required media must be uploaded before submitting."
+                                            }
+                                        }
+                                    ],
+                                    "properties": {
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "string"
+                                                },
+                                                "message": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "code",
+                                                "message"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "error"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -840,12 +1204,39 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "",
+                        "description": "The active consent version. Show the text at url, then send id and text_sha256 back when accepting.",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "integer",
-                                    "const": 200
+                                    "type": "object",
+                                    "examples": [
+                                        {
+                                            "id": 1,
+                                            "version": "1.0",
+                                            "text_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+                                            "url": "https://app.proofage.xyz/consent"
+                                        }
+                                    ],
+                                    "properties": {
+                                        "id": {
+                                            "type": "integer"
+                                        },
+                                        "version": {
+                                            "type": "string"
+                                        },
+                                        "text_sha256": {
+                                            "type": "string"
+                                        },
+                                        "url": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "version",
+                                        "text_sha256",
+                                        "url"
+                                    ]
                                 }
                             }
                         }
@@ -1039,6 +1430,13 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "page_url": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 8192
                     }
                 },
                 "title": "StoreVerificationRequest"
@@ -1047,7 +1445,9 @@
                 "type": "object",
                 "properties": {
                     "file": {
-                        "type": "string"
+                        "type": "string",
+                        "format": "binary",
+                        "contentMediaType": "application/octet-stream"
                     },
                     "type": {
                         "type": "string",
