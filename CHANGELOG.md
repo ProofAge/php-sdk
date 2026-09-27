@@ -26,6 +26,18 @@
 
 ### Fixed
 
+- `uploadMedia()` and `submit()` are documented as returning `null`: the API answers both with 200
+  and an empty body, never `{"message": ...}`. Their native `?array` return type is unchanged; they
+  now return `null` explicitly.
+- The `@param`/`@return` shapes and `AGENTS.md` match the API: `duplicate_check` and `erasure` on
+  `create()`/`find()`/`get()` and `201` on create; `page_url` on `create()`; the optional browser
+  fields of `acceptConsent()` (`device`, `in_app_browser`, `camera_permission`,
+  `camera_policy_allowed`, `in_iframe`, `referrer`); `liveness_telemetry` on `uploadMedia()`, whose
+  `type`, `side` and `document` are now literal unions; `duplicate_count` and
+  `fingerprint_signals` in the webhook body. `AGENTS.md` no longer claims a default base URL
+  (`base_url` is required) and no longer says webhooks go to `callback_url`: they go to the
+  workspace's webhook URL and are signed with its active secret key. The `downloadMedia()` docblock
+  no longer mentions the removed `media[].signed_url`.
 - `ProofAgeException` reads every error body the API sends, not only `{"error": {...}}`. A flat
   `{"code", "message"}` (402 `PAYMENT_METHOD_REQUIRED`, the upload quality errors such as 422
   `FACE_NOT_FOUND` and 500 `VALIDATION_SERVICE_UNAVAILABLE`) now gives `getErrorCode()` and

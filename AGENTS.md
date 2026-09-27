@@ -4,13 +4,15 @@ This package wraps the ProofAge v1 HTTP API. Methods on `$client->workspace()` a
 `$client->verifications($id)` (`ProofAge\Sdk\Client`) return decoded JSON as `array|null`.
 The exact request and response shape of every method is below and in the `@param`/`@return`
 PHPDoc on `src/Resources/`. A machine-readable spec ships at `resources/openapi.json`
-(authoritative for endpoints + request bodies; response schemas there are incomplete by
-generator limitation — the shapes below are authoritative for responses). This SDK is the
+(authoritative for endpoints and request bodies; it describes most responses too, and
+`tests/ApiContractTest.php` checks the top-level fields below against it wherever it does).
+Responses are never wrapped in `data`. This SDK is the
 single source of truth for endpoint paths and request shapes; `proofage/laravel-client` is
 an integration layer on top of it.
 
-All requests send `X-API-Key` and `X-HMAC-Signature`. Base URL is
-`{base_url}/{version}` (defaults `https://api.proofage.xyz/v1`).
+All requests send `X-API-Key` and `X-HMAC-Signature` to `{base_url}/{version}/{path}`. The
+`base_url` config key is required and has no default — use `https://api.proofage.xyz`, with no
+path; `version` defaults to `v1`.
 
 ## Auth / HMAC
 
@@ -40,25 +42,28 @@ Request: none.
 Response: `{ id: int, version: string, text_sha256: string, url: string }`
 
 ### POST /verifications — `$client->verifications()->create($data)`
-Request: `{ fingerprint?: string(64), callback_url?: url(<=2048), external_id?: string(<=255), external_metadata?: object, metadata?: object }`
-Response: `{ id: string, external_id: string|null, external_metadata: object|null, redirect_url: string|null, status: string, reason: string|null, consent_accepted_at: string|null, created_at: string, updated_at: string, url: string }`
-Errors: `402` `{ code: "PAYMENT_METHOD_REQUIRED", message, free_verifications_remaining, trial_ends_at, trial_active }`.
+Request: `{ fingerprint?: string(64), callback_url?: url(<=2048), external_id?: string(<=255), external_metadata?: object, metadata?: object, page_url?: string(<=8192) }`
+Response: `201 { id: string, external_id: string|null, external_metadata: object|null, redirect_url: string|null, status: string, reason: string|null, duplicate_check: { checked: bool, duplicate_count: int, duplicates: [ { verification_id: string|null, external_id: string|null, similarity_score: float|null, verified_at: string|null } ] }, erasure: { erased_at: string, scope: string, reason: string|null, requested_via: string|null }|null, consent_accepted_at: string|null, created_at: string, updated_at: string, url: string }`
+`callback_url` is where the person's browser goes when they finish (returned as `redirect_url`, falling back to the workspace's redirect URL); it is **not** a webhook target. `page_url` is the page the flow was started on; only scheme, host and path are kept. `url` is the link the person opens. `duplicate_count` counts every face match; `duplicates` may be shorter. `erasure` is null until the personal data is erased.
+Errors: `402` `{ code: "PAYMENT_METHOD_REQUIRED", message, free_verifications_remaining, trial_ends_at, trial_active }` (flat, not nested under `error`).
 
 ### GET /verifications/{verification} — `$client->verifications($id)->find($id)` / `->get()`
 Request: none.
 Response: same as create **without** `url`.
 
 ### POST /verifications/{verification}/consent — `$client->verifications($id)->acceptConsent($data)`
-Request: `{ consent_version_id: int, text_sha256: string(64 hex) }`
+Request: `{ consent_version_id: int, text_sha256: string(64 hex), device?: { platform?: string, screen?: string, language?: string, timezone?: string, hardware_concurrency?: number, device_memory?: number }, in_app_browser?: string(<=64), camera_permission?: "granted"|"denied"|"prompt"|"unsupported", camera_policy_allowed?: bool, in_iframe?: bool, referrer?: string(<=512) }` — everything after `text_sha256` is optional browser context a capture widget reports; a server-side integration leaves it out.
 Response: `{ consent_version_id: int, consent_accepted_at: string }`
 
 ### POST /verifications/{verification}/media — `$client->verifications($id)->uploadMedia($data)` (multipart)
-Request: `{ file: path|\SplFileInfo|FilePart, type: "selfie"|"liveness_selfie"|"document", side?: "front"|"back" (req. if type=document), document?: "id"|"driver_license"|"passport"|"residence_permit" (req. if type=document), fingerprint?: string(64), head_turn_step?: int(0..10), capture_resolution?: json-string, device_info?: json-string }`
-Response: `{ message: string }`. Requires consent accepted first. A `file` path that does not exist throws `\InvalidArgumentException` before anything is sent.
+Request: `{ file: path|\SplFileInfo|FilePart, type: "selfie"|"liveness_selfie"|"document", side?: "front"|"back" (req. if type=document), document?: "id"|"driver_license"|"passport"|"residence_permit" (req. if type=document), fingerprint?: string(64), head_turn_step?: int(0..10), capture_resolution?: json-string, device_info?: json-string, liveness_telemetry?: json-string }`
+Response: `200` with an **empty body**; the method returns `null`. Requires consent accepted first. A `file` path that does not exist throws `\InvalidArgumentException` before anything is sent. A null field is not sent and a boolean is sent as `1`/`0`, so the multipart signature holds.
+Errors: `422 { code, message }` (flat) when the image fails a quality check — `FACE_NOT_FOUND` and the other quality codes, `MAX_ATTEMPTS_REACHED`; `500 { code: "VALIDATION_SERVICE_UNAVAILABLE", message }`; `422 { message, errors }` for invalid fields.
 
 ### POST /verifications/{verification}/submit — `$client->verifications($id)->submit()`
 Request: none.
-Response: `{ message: string }`. Error: `422 { error: { code, message } }`.
+Response: `200` with an **empty body**; the method returns `null`. The outcome arrives by webhook or through `get()`.
+Error: `422 { error: { code, message } }` when the verification is not `started` or required media is missing (e.g. `MISSING_REQUIRED_MEDIA`).
 
 ### GET /verifications/{verification}/document — `$client->verifications($id)->document()`
 Request: none.
@@ -66,7 +71,7 @@ Response: `{ document: { fields: { first_name: string|null, last_name: string|nu
 
 ### GET /verifications/{verification}/media/{media} — `$client->verifications($id)->downloadMedia($mediaId)`
 Request: none. `{media}` is `media[].id` from document().
-Response: the image bytes, `Content-Type` from the file (e.g. `image/jpeg`). `downloadMedia()` returns a PSR-7 `StreamInterface`; `downloadMediaTo($mediaId, $path)` streams to disk and returns the path. Downloads do not retry HTTP failures — 429 included — because they run from a queue whose backoff owns the wait; raise `download_retry_attempts` (default 1) to retry connection failures only. Error: `404 { error: { code: "MEDIA_NOT_FOUND", message } }` when the media is purged, past retention, or not part of this verification. `url` is null when the media has been purged or is past retention, so check it before downloading rather than treating a 404 as normal.
+Response: the image bytes, `Content-Type` from the file (e.g. `image/jpeg`). The SDK sends `Accept: application/json, */*;q=0.8` so a 403/404 comes back as JSON. `downloadMedia()` returns a PSR-7 `StreamInterface`; `downloadMediaTo($mediaId, $path)` streams to disk and returns the path. Downloads do not retry HTTP failures — 429 included — because they run from a queue whose backoff owns the wait; raise `download_retry_attempts` (default 1) to retry connection failures only. Error: `404 { error: { code: "MEDIA_NOT_FOUND", message } }` when the media is purged, past retention, or not part of this verification. `url` is null when the media has been purged or is past retention, so check it before downloading rather than treating a 404 as normal.
 
 ### GET /verifications/{verification}/estimation — `$client->verifications($id)->estimation()`
 Request: none.
@@ -75,6 +80,13 @@ Response: `{ verification_id: string, attempt_id: string|null, age_threshold: { 
 ### POST /verifications/{verification}/blocked-face — `$client->verifications($id)->blockFace($data)`
 Request: `{ reason_code?: string, reason?: string(<=1000) }`.
 Response: `204 No Content` (method returns `null`).
+
+## Retries
+
+`GET` requests are retried (`retry_attempts`, default 3) after a transport failure, a 429, or a
+3xx/5xx. A `POST` is retried only when repeating it cannot make the server act twice: a connection
+failure before the request was sent (`TransportException::requestMayHaveBeenSent()` is false) or a
+429 carrying `Retry-After`. A 5xx or a timeout on a `POST` is thrown at once.
 
 ## Enums
 
@@ -99,7 +111,12 @@ exception reads each:
 A failure below HTTP — connection refused, DNS, TLS, timeout — throws `TransportException`, which
 never carries a response. Every SDK exception implements `ProofAge\Sdk\Exceptions\ExceptionInterface`.
 
-## Outbound webhook (ProofAge → your `callback_url` / workspace webhook URL)
+## Outbound webhook (ProofAge → the workspace's webhook URL)
+
+Webhooks go to the workspace's `webhook_url` (see `GET /workspace`), never to create's
+`callback_url`, which is only the browser redirect. They are signed with the workspace's
+**active** secret key; API requests are accepted with any secret key that has not been deleted,
+so verify webhooks with the active one.
 
 Headers: `X-Auth-Client` (api key), `X-Timestamp` (unix seconds), `X-HMAC-Signature`
 (= hex HMAC-SHA256 of `{timestamp}.{rawJsonBody}` with the active secret key),
@@ -120,8 +137,9 @@ Body:
   "reason": string|null,                       // only on resubmission_requested / declined
   "timestamp": string (ISO8601),
   "duplicate_detected"?: true,                 // present only when a duplicate was found
-  "duplicate_of"?: { "verification_id": string, "external_id": string|null },
-  "fingerprint_signals"?: { "ip_address"?, "ip_country_code"?, "ip_timezone"?, "device_timezone"?, ... },
+  "duplicate_count"?: int,                     // with duplicate_detected: every match found
+  "duplicate_of"?: { "verification_id": string, "external_id": string|null },   // the first match
+  "fingerprint_signals"?: { "ip_address"?, "ip_country_code"?, "ip_timezone"?, "device_timezone"?, ... },  // present only when signals were collected
   "manual_moderation"?: { "action": "approve"|"decline", "reason": string, "source": string,
                           "performed_by": string, "source_status"?: string|null, "source_reason"?: string|null }
 }

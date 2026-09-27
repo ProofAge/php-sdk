@@ -275,7 +275,7 @@ class ClientTest extends TestCase
     {
         $path = sys_get_temp_dir().'/proofage-client-'.uniqid().'.jpg';
         file_put_contents($path, 'not-really-a-jpeg');
-        $client = $this->client(['api.test.com/*' => FakeHttpClient::json(['message' => 'ok'])], [], $fake);
+        $client = $this->client(['api.test.com/*' => FakeHttpClient::raw('')], [], $fake);
 
         try {
             $result = $client->makeRequest('POST', 'verifications/ver_123/media', ['type' => 'document', 'side' => 'front'], ['file' => $path]);
@@ -283,7 +283,8 @@ class ClientTest extends TestCase
             unlink($path);
         }
 
-        $this->assertSame(['message' => 'ok'], $result->json());
+        $this->assertSame(200, $result->status());
+        $this->assertNull($result->json(), 'The upload answers 200 with an empty body.');
 
         $sent = $fake->sent()[0];
         $this->assertInstanceOf(MultipartBody::class, $sent->body);

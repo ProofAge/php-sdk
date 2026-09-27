@@ -64,9 +64,12 @@ accepted); a float or anything else throws `ProofAgeException` at construction.
 
 ```php
 $verification = $client->verifications()->create([
-    'callback_url' => 'https://example.com/proofage/webhook',
+    'callback_url' => 'https://example.com/verification/done',   // where the browser goes afterwards
     'external_id' => 'user-42',
 ]);
+
+$verification['url'];                          // the link the person opens
+\ProofAge\Sdk\Enums\VerificationStatus::tryFrom($verification['status']);
 
 $v = $client->verifications($verification['id']);
 
@@ -83,7 +86,8 @@ $client->workspace()->get();
 $client->workspace()->getConsent();
 ```
 
-Methods return the decoded JSON as `array|null`. Every request and response shape is documented
+Methods return the decoded JSON as `array|null`; `uploadMedia()` and `submit()` return `null`,
+because the API answers them with an empty body. Every request and response shape is documented
 in [`AGENTS.md`](AGENTS.md) and in the `@param`/`@return` PHPDoc on `src/Resources/`.
 
 `uploadMedia()` accepts a path, any `\SplFileInfo` (Symfony's and Laravel's `UploadedFile`
@@ -163,8 +167,12 @@ still leaves the config array in the trace unless `zend.exception_ignore_args=1`
 
 ## Webhooks
 
-ProofAge signs every delivery with `X-Auth-Client`, `X-Timestamp` and `X-HMAC-Signature`
-(HMAC-SHA256 of `{timestamp}.{rawBody}`).
+Status webhooks go to the workspace's webhook URL (set in the console; `workspace()->get()` returns
+it as `webhook_url`), not to the `callback_url` given to `create()`, which is only where the
+person's browser is sent afterwards. ProofAge signs every delivery with `X-Auth-Client`,
+`X-Timestamp` and `X-HMAC-Signature` (HMAC-SHA256 of `{timestamp}.{rawBody}`) using the
+workspace's **active** secret key; API requests accept any key that has not been deleted, so give
+the verifier the active one. The body is documented in [`AGENTS.md`](AGENTS.md).
 
 ```php
 use ProofAge\Sdk\Webhooks\WebhookVerifier;

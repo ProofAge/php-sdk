@@ -6,6 +6,7 @@ namespace ProofAge\Sdk\Resources;
 
 use ProofAge\Sdk\Client;
 use ProofAge\Sdk\Enums\BlockFaceReasonCode;
+use ProofAge\Sdk\Enums\VerificationStatus;
 use ProofAge\Sdk\Http\Body\FilePart;
 use ProofAge\Sdk\Http\Response;
 use Psr\Http\Message\StreamInterface;
@@ -29,12 +30,24 @@ class VerificationResource
     /**
      * Create a new verification.
      *
+     * `callback_url` is where the person's browser is sent when they finish, overriding the
+     * workspace's redirect URL for this verification (it comes back as `redirect_url`). It
+     * is not a webhook: status webhooks always go to the workspace's webhook URL.
+     * `page_url` is the page the flow was started from; only its scheme, host and path are
+     * kept.
+     *
+     * `status` is one of the {@see VerificationStatus} values; read it with tryFrom().
+     * `duplicate_check` lists the accounts whose face matched this one (`duplicate_count`
+     * spans every match, the list may be shorter). `erasure` is null until the personal data
+     * is erased, then says when and why.
+     *
      * @param  array{
      *     fingerprint?: string,
      *     callback_url?: string,
      *     external_id?: string,
      *     external_metadata?: array<string, mixed>,
-     *     metadata?: array<string, mixed>
+     *     metadata?: array<string, mixed>,
+     *     page_url?: string
      * }  $data
      * @return array{
      *     id: string,
@@ -43,6 +56,12 @@ class VerificationResource
      *     redirect_url: string|null,
      *     status: string,
      *     reason: string|null,
+     *     duplicate_check: array{
+     *         checked: bool,
+     *         duplicate_count: int,
+     *         duplicates: list<array{verification_id: string|null, external_id: string|null, similarity_score: float|null, verified_at: string|null}>
+     *     },
+     *     erasure: array{erased_at: string, scope: string, reason: string|null, requested_via: string|null}|null,
      *     consent_accepted_at: string|null,
      *     created_at: string,
      *     updated_at: string,
@@ -57,7 +76,7 @@ class VerificationResource
     }
 
     /**
-     * Get verification by ID.
+     * Get verification by ID. The same shape as create(), without `url`.
      *
      * @return array{
      *     id: string,
@@ -66,6 +85,12 @@ class VerificationResource
      *     redirect_url: string|null,
      *     status: string,
      *     reason: string|null,
+     *     duplicate_check: array{
+     *         checked: bool,
+     *         duplicate_count: int,
+     *         duplicates: list<array{verification_id: string|null, external_id: string|null, similarity_score: float|null, verified_at: string|null}>
+     *     },
+     *     erasure: array{erased_at: string, scope: string, reason: string|null, requested_via: string|null}|null,
      *     consent_accepted_at: string|null,
      *     created_at: string,
      *     updated_at: string
@@ -79,7 +104,7 @@ class VerificationResource
     }
 
     /**
-     * Get current verification (if ID was set in constructor).
+     * Get current verification (if ID was set in constructor). The same shape as find().
      *
      * @return array{
      *     id: string,
@@ -88,6 +113,12 @@ class VerificationResource
      *     redirect_url: string|null,
      *     status: string,
      *     reason: string|null,
+     *     duplicate_check: array{
+     *         checked: bool,
+     *         duplicate_count: int,
+     *         duplicates: list<array{verification_id: string|null, external_id: string|null, similarity_score: float|null, verified_at: string|null}>
+     *     },
+     *     erasure: array{erased_at: string, scope: string, reason: string|null, requested_via: string|null}|null,
      *     consent_accepted_at: string|null,
      *     created_at: string,
      *     updated_at: string
@@ -105,7 +136,21 @@ class VerificationResource
     /**
      * Accept consent for verification.
      *
-     * @param  array{consent_version_id: int, text_sha256: string}  $data
+     * `consent_version_id` and `text_sha256` come from WorkspaceResource::getConsent(). The
+     * other fields are optional browser details a widget reports, kept so a verification
+     * that stalls before its first upload still carries technical context; a server-side
+     * integration normally leaves them out.
+     *
+     * @param  array{
+     *     consent_version_id: int,
+     *     text_sha256: string,
+     *     device?: array{platform?: string, screen?: string, language?: string, timezone?: string, hardware_concurrency?: int|float, device_memory?: int|float},
+     *     in_app_browser?: string,
+     *     camera_permission?: 'granted'|'denied'|'prompt'|'unsupported',
+     *     camera_policy_allowed?: bool,
+     *     in_iframe?: bool,
+     *     referrer?: string
+     * }  $data
      * @return array{consent_version_id: int, consent_accepted_at: string}|null
      */
     public function acceptConsent(array $data): ?array
@@ -127,23 +172,31 @@ class VerificationResource
      * Upload media for verification.
      *
      * `file` is sent as multipart. `side` and `document` are required when `type` is
-     * `document`. `capture_resolution` and `device_info` are JSON-encoded strings.
+     * `document`. `capture_resolution` and `device_info` are JSON-encoded strings;
+     * `liveness_telemetry` is a JSON-encoded list of head-turn samples a capture widget
+     * records, and is ignored when malformed. A null field is not sent and a boolean is
+     * sent as 1 / 0.
      *
      * `file` may be a path, any \SplFileInfo (Illuminate\Http\UploadedFile and Symfony's
      * UploadedFile included; their client original name is used as the filename), or a
      * FilePart. A path that does not exist throws \InvalidArgumentException.
      *
+     * The API answers 200 with an empty body, so this returns null. A failed quality check
+     * throws a ValidationException whose getErrorCode() names it (FACE_NOT_FOUND, ...).
+     *
      * @param  array{
      *     file?: \SplFileInfo|FilePart|string,
-     *     type: string,
-     *     side?: string,
-     *     document?: string,
+     *     type: 'selfie'|'liveness_selfie'|'document',
+     *     side?: 'front'|'back',
+     *     document?: 'id'|'driver_license'|'passport'|'residence_permit',
      *     fingerprint?: string,
      *     head_turn_step?: int,
      *     capture_resolution?: string,
-     *     device_info?: string
+     *     device_info?: string,
+     *     liveness_telemetry?: string
      * }  $data
-     * @return array{message: string}|null
+     * @return array{}|null Always null: the API answers 200 with an empty body. The ?array
+     *                      return type is kept so existing subclasses stay compatible.
      */
     public function uploadMedia(array $data): ?array
     {
@@ -160,20 +213,25 @@ class VerificationResource
             unset($formData['file']);
         }
 
-        $response = $this->client->makeRequest(
+        $this->client->makeRequest(
             'POST',
             "verifications/{$this->verificationId}/media",
             $formData,
             $files
         );
 
-        return $response->json();
+        return null;
     }
 
     /**
      * Submit verification for processing.
      *
-     * @return array{message: string}|null
+     * The API answers 200 with an empty body, so this returns null; the outcome arrives by
+     * webhook or through get(). A verification that is not `started`, or lacks required
+     * media, throws a ValidationException (`error.code`, e.g. MISSING_REQUIRED_MEDIA).
+     *
+     * @return array{}|null Always null: the API answers 200 with an empty body. The ?array
+     *                      return type is kept so existing subclasses stay compatible.
      */
     public function submit(): ?array
     {
@@ -181,24 +239,25 @@ class VerificationResource
             throw new \InvalidArgumentException('Verification ID is required');
         }
 
-        $response = $this->client->makeRequest(
+        $this->client->makeRequest(
             'POST',
             "verifications/{$this->verificationId}/submit"
         );
 
-        return $response->json();
+        return null;
     }
 
     /**
      * Get sanitized document fields and source media for verification.
      *
-     * Media are ordered selfie, document_front, document_back. Fetch the bytes with
+     * Media are ordered selfie, document_front, document_back; each is `{id, type, url}`.
+     * Fetch the bytes with
      * downloadMedia() using `media[].id`; `url` is that endpoint's address and is
      * null when the media has been purged or has passed its retention window.
      *
      * @return array{
      *     document: array{fields: array{first_name: string|null, last_name: string|null, date_of_birth: string|null, document_number: string|null}},
-     *     media: list<array{id: string, type: string, url: string|null}>,
+     *     media: list<array{id: string, type: 'selfie'|'document_front'|'document_back', url: string|null}>,
      *     meta: array{attempt_id: string|null}
      * }|null
      */
@@ -220,9 +279,8 @@ class VerificationResource
      * Download one media file belonging to the verification.
      *
      * Streams the bytes from the ProofAge API under the same API key and HMAC
-     * signature as every other call. Prefer this over `media[].signed_url` from
-     * document(): the presigned storage URL points at Google, and a caller whose
-     * network Google refuses cannot fetch it at all.
+     * signature as every other call. `media[].url` from document() is this endpoint's
+     * address; it needs the same signed request, so fetch it through this method.
      *
      * The media ID is `media[].id` from document(). Media that has been purged,
      * has passed its retention window, or does not belong to this verification
