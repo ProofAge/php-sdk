@@ -447,7 +447,8 @@ class ClientTest extends TestCase
         $this->assertSame('image/jpeg', $response->header('content-type'));
 
         $sent = $fake->sent()[0];
-        $this->assertSame('*/*', $sent->header('Accept'));
+        $this->assertSame('application/json, */*;q=0.8', $sent->header('Accept'));
+        $this->assertStringStartsWith('application/json,', (string) $sent->header('Accept'), 'JSON must be the first acceptable type, or the server renders its errors as HTML.');
         $this->assertNull($sent->body);
         $this->assertTrue($sent->stream);
         $this->assertNull($sent->sink);

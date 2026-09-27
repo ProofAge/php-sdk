@@ -91,6 +91,10 @@ $stream = $v->downloadMedia($mediaId);          // Psr\Http\Message\StreamInterf
 $path = $v->downloadMediaTo($mediaId, '/var/media/front.jpg');
 ```
 
+Downloads send `Accept: application/json, */*;q=0.8`: the endpoint answers with the file's bytes
+regardless, and the header makes the server render a 403 or a 404 as a JSON error the exception can
+read instead of an HTML page.
+
 With the bundled cURL transport the body is received into `php://temp`, which spills to disk past
 2 MB, and is never held as a PHP string. Downloads never retry an HTTP status (429 included): they
 usually run from a queue whose own backoff owns the wait. Raise `download_retry_attempts` to retry

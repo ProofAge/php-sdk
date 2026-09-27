@@ -32,6 +32,17 @@ use ProofAge\Sdk\Stream\ResourceStream;
  */
 class Client
 {
+    /**
+     * The Accept header of a media download.
+     *
+     * The download endpoint answers 2xx with the file's bytes whatever Accept says, but the
+     * server renders its errors - a 404 for a malformed id, a 403 for a verification of
+     * another workspace - as JSON only when the request's first acceptable type is JSON.
+     * A wildcard-only Accept got an HTML error page there, so the exception carried no code
+     * or message. MEDIA_NOT_FOUND, 401 and 429 are JSON either way.
+     */
+    public const DOWNLOAD_ACCEPT = 'application/json, */*;q=0.8';
+
     /** @var array<string, mixed> */
     protected array $config;
 
@@ -153,7 +164,7 @@ class Client
             $method,
             $url,
             $path,
-            ['Accept' => '*/*'],
+            ['Accept' => self::DOWNLOAD_ACCEPT],
             null,
             RetryPolicy::download($this->downloadRetryAttempts(), $this->retryDelay()),
             $this->timeout(),

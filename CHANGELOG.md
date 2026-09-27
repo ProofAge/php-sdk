@@ -17,6 +17,10 @@
   404 "Resource not found") gives `getMessage()`. All of these used to read as
   "ProofAge API request failed" with a null code. When the body is not nested under `error`,
   `getErrorData()` is the whole body instead of `[]`.
+- Media downloads send `Accept: application/json, */*;q=0.8` instead of `*/*`
+  (`Client::DOWNLOAD_ACCEPT`). The server renders a 403 or a route-level 404 as JSON only when
+  JSON is the first acceptable type, so those errors used to arrive as an HTML page with no code or
+  message. A successful download still returns the file's bytes.
 
 ## 0.1.3 - 2026-09-03
 
