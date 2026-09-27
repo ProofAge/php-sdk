@@ -16,23 +16,41 @@ namespace ProofAge\Sdk\Http\Body;
  * restricted: PHP keeps them verbatim inside the brackets. Two files under one field
  * name are rejected for the same reason: PHP keeps one upload per name, so two hashes
  * would be signed and one verified.
+ *
+ * Field values are normalized once, here, to what the server will read back: a null is
+ * dropped, `true`/`false` become "1"/"0", numbers become their string form, and an array
+ * left empty is dropped. The signer and every transport read the same normalized $fields,
+ * so a transport that casts each value to a string (Guzzle's multipart, Illuminate's
+ * attach()) sends exactly what was signed. Without this a null went out as "" and `false`
+ * as "", while the signature, built with http_build_query(), omitted the null and rendered
+ * `false` as "0" - and the server answered 401 INVALID_SIGNATURE.
  */
 final class MultipartBody
 {
     /**
+     * The normalized form fields: every leaf a string, no nulls, no empty arrays.
+     *
+     * @var array<string, mixed>
+     */
+    public readonly array $fields;
+
+    /**
      * @param  array<string, mixed>  $fields
      * @param  list<FilePart>  $files
      *
-     * @throws \InvalidArgumentException for a top-level field name PHP would rename, or a
-     *                                   file field name used twice
+     * @throws \InvalidArgumentException for a top-level field name PHP would rename, a file
+     *                                   field name used twice, or a value that is not a
+     *                                   scalar, null, \Stringable or an array of those
      */
     public function __construct(
-        public readonly array $fields,
+        array $fields,
         public readonly array $files,
     ) {
         foreach (array_keys($fields) as $name) {
             self::assertFieldName((string) $name, 'form');
         }
+
+        $this->fields = self::normalize($fields);
 
         $seen = [];
 
@@ -45,6 +63,49 @@ final class MultipartBody
 
             $seen[$part->name] = true;
         }
+    }
+
+    /**
+     * @template TKey of array-key
+     *
+     * @param  array<TKey, mixed>  $fields
+     * @return array<TKey, mixed>
+     */
+    private static function normalize(array $fields): array
+    {
+        $out = [];
+
+        foreach ($fields as $key => $value) {
+            if ($value === null) {
+                continue;
+            }
+
+            if (is_array($value)) {
+                $value = self::normalize($value);
+
+                if ($value !== []) {
+                    $out[$key] = $value;
+                }
+
+                continue;
+            }
+
+            if (is_bool($value)) {
+                $out[$key] = $value ? '1' : '0';
+
+                continue;
+            }
+
+            if (is_scalar($value) || $value instanceof \Stringable) {
+                $out[$key] = (string) $value;
+
+                continue;
+            }
+
+            throw new \InvalidArgumentException(sprintf('Multipart field "%s" must be a scalar, null, a Stringable or an array of those, %s given', $key, get_debug_type($value)));
+        }
+
+        return $out;
     }
 
     private static function assertFieldName(string $name, string $kind): void

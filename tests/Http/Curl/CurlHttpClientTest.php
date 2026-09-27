@@ -148,6 +148,23 @@ class CurlHttpClientTest extends TestCase
         $this->assertSame($rebuilt, $echo['headers']['x-hmac-signature']);
     }
 
+    public function test_null_and_boolean_multipart_fields_arrive_as_signed(): void
+    {
+        // The server signs what PHP decoded into $_POST. A null field must not be sent at all
+        // and a boolean must arrive as the "1"/"0" http_build_query() signs, or the upload
+        // answers 401 INVALID_SIGNATURE.
+        $file = new FilePart('file', 'selfie.jpg', random_bytes(512));
+        $body = new MultipartBody(['type' => 'selfie', 'fingerprint' => null, 'in_iframe' => false, 'retry' => true, 'device' => ['memory' => null, 'touch' => false, 'cores' => 8]], [$file]);
+        $path = '/v1/verifications/ver_1/media';
+        $request = $this->request('POST', $path, $body);
+        $signature = (new Signer('transport-secret'))->sign($request);
+
+        $echo = $this->echo((new CurlHttpClient)->send($request->withHeader('X-HMAC-Signature', $signature)));
+
+        $this->assertSame(['type' => 'selfie', 'in_iframe' => '0', 'retry' => '1', 'device' => ['touch' => '0', 'cores' => '8']], $echo['fields']);
+        $this->assertSame($signature, (new Signer('transport-secret'))->signMultipart('POST', $echo['path'], $echo['fields'], array_column($echo['files'], 'sha256')));
+    }
+
     public function test_http_error_statuses_are_responses_not_exceptions(): void
     {
         foreach ([401, 422, 429, 500] as $status) {

@@ -21,6 +21,14 @@
   (`Client::DOWNLOAD_ACCEPT`). The server renders a 403 or a route-level 404 as JSON only when
   JSON is the first acceptable type, so those errors used to arrive as an HTML page with no code or
   message. A successful download still returns the file's bytes.
+- `MultipartBody` normalizes its fields once, in the constructor: a null is dropped, `true`/`false`
+  become `"1"`/`"0"`, numbers and `\Stringable`s become strings, and an array left empty is
+  dropped. The signer and every transport read the same `$fields`, so a transport that casts each
+  value to a string (Guzzle's multipart, Illuminate's `attach()`) no longer sends a null or `false`
+  as `""` while the signature omitted the one and signed `"0"` for the other — which the server
+  answered with 401 `INVALID_SIGNATURE`. A value that is not a scalar, null, `\Stringable` or an
+  array of those now throws `\InvalidArgumentException` when the body is built rather than when it
+  is encoded.
 
 ## 0.1.3 - 2026-09-03
 

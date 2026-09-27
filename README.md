@@ -76,7 +76,9 @@ in [`AGENTS.md`](AGENTS.md) and in the `@param`/`@return` PHPDoc on `src/Resourc
 
 `uploadMedia()` accepts a path, any `\SplFileInfo` (Symfony's and Laravel's `UploadedFile`
 included) or a `ProofAge\Sdk\Http\Body\FilePart`. A path that does not exist throws
-`\InvalidArgumentException` before anything is sent.
+`\InvalidArgumentException` before anything is sent. Form fields are sent as the server will read
+them back: a null field is left out and a boolean is sent as `1` / `0`, so the signature matches
+whichever transport sends the body.
 
 `makeRequest($method, $endpoint, $data, $files)` takes the endpoint relative to the version
 segment, with raw (not pre-encoded) path segments: each segment is percent-encoded once, so the
