@@ -71,8 +71,22 @@ final class FakeHttpClient implements HttpClient
         return new Response($status, $headers, ResourceStream::fromString($body), self::placeholderRequest());
     }
 
-    /** A route entry that throws TransportException when hit. */
+    /**
+     * A route entry that throws TransportException when hit: the connection was never
+     * made, so the request was not sent and even a POST is retried.
+     */
     public static function failedConnection(string $message = 'Connection refused'): callable
+    {
+        return static function () use ($message): Response {
+            throw new TransportException($message, requestMayHaveBeenSent: false);
+        };
+    }
+
+    /**
+     * A route entry that throws TransportException after the request may have reached the
+     * server - a timeout or a dropped connection. A GET is retried, a POST is not.
+     */
+    public static function timeout(string $message = 'Operation timed out'): callable
     {
         return static function () use ($message): Response {
             throw new TransportException($message);

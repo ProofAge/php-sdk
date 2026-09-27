@@ -32,6 +32,21 @@ final class CurlHttpClient implements HttpClient
      */
     private const LOCAL_URL_ERRORS = [CURLE_UNSUPPORTED_PROTOCOL, CURLE_URL_MALFORMAT];
 
+    /**
+     * cURL errors raised before the request is written to the connection: the name did not
+     * resolve, the connection was refused, or TLS could not be set up. The server cannot
+     * have seen the request, so the TransportException says so and a POST may be retried.
+     * A timeout (28) is not here: it fires as readily after the request was sent as before.
+     */
+    private const NOT_SENT_ERRORS = [
+        CURLE_UNSUPPORTED_PROTOCOL,
+        CURLE_URL_MALFORMAT,
+        CURLE_COULDNT_RESOLVE_PROXY,
+        CURLE_COULDNT_RESOLVE_HOST,
+        CURLE_COULDNT_CONNECT,
+        CURLE_SSL_CONNECT_ERROR,
+    ];
+
     public function send(Request $request): Response
     {
         $url = $request->url;
@@ -105,6 +120,7 @@ final class CurlHttpClient implements HttpClient
                 $error !== '' ? $error : "cURL error {$errno}",
                 $errno,
                 retryable: ! in_array($errno, self::LOCAL_URL_ERRORS, true),
+                requestMayHaveBeenSent: ! in_array($errno, self::NOT_SENT_ERRORS, true),
             );
         }
 

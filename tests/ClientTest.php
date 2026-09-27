@@ -545,6 +545,44 @@ class ClientTest extends TestCase
         $fake->assertSentCount(2);
     }
 
+    public function test_upload_and_submit_are_not_repeated_after_a_server_error_or_a_timeout(): void
+    {
+        // A 5xx or a timeout does not say the server did nothing: the upload may be stored and
+        // the verification submitted. Repeating either would act twice.
+        $client = $this->client([
+            'api.test.com/v1/verifications/ver_1/submit' => [FakeHttpClient::json(['message' => 'Server Error'], 500), FakeHttpClient::raw('')],
+            'api.test.com/v1/verifications' => [FakeHttpClient::timeout(), FakeHttpClient::json(['id' => 'ver_2'], 201)],
+        ], ['retry_delay' => 0], $fake);
+
+        try {
+            $client->verifications('ver_1')->submit();
+            $this->fail('Expected the 500 to surface.');
+        } catch (ProofAgeException $e) {
+            $this->assertSame(500, $e->getCode());
+        }
+
+        try {
+            $client->verifications()->create(['external_id' => 'user-1']);
+            $this->fail('Expected the timeout to surface.');
+        } catch (TransportException $e) {
+            $this->assertTrue($e->requestMayHaveBeenSent());
+        }
+
+        $fake->assertSentCount(2);
+    }
+
+    public function test_a_post_is_retried_when_the_connection_failed_or_the_rate_limiter_said_when(): void
+    {
+        $client = $this->client(['api.test.com/v1/verifications' => [
+            FakeHttpClient::failedConnection(),
+            FakeHttpClient::json(['error' => ['code' => 'RATE_LIMIT', 'message' => 'Too many requests.']], 429, ['Retry-After' => '1']),
+            FakeHttpClient::json(['id' => 'ver_2'], 201),
+        ]], ['retry_delay' => 0], $fake);
+
+        $this->assertSame(['id' => 'ver_2'], $client->verifications()->create(['external_id' => 'user-1']));
+        $fake->assertSentCount(3);
+    }
+
     public function test_download_retry_attempts_can_be_raised_for_connection_failures(): void
     {
         // Ported from proofage-laravel-client tests/VerificationResourceTest.php:313-343.

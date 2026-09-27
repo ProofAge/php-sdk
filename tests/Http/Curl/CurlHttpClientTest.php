@@ -191,6 +191,7 @@ class CurlHttpClientTest extends TestCase
         } catch (TransportException $e) {
             $this->assertSame(CURLE_OPERATION_TIMEDOUT, $e->getCode());
             $this->assertNotSame('', $e->getMessage());
+            $this->assertTrue($e->requestMayHaveBeenSent(), 'The server may have acted on a request that timed out.');
         }
     }
 
@@ -205,6 +206,7 @@ class CurlHttpClientTest extends TestCase
         } catch (TransportException $e) {
             $this->assertSame(CURLE_COULDNT_CONNECT, $e->getCode());
             $this->assertTrue($e->isRetryable(), 'A refused connection may succeed next time.');
+            $this->assertFalse($e->requestMayHaveBeenSent(), 'A refused connection never carried the request.');
         }
     }
 

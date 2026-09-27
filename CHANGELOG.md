@@ -2,8 +2,24 @@
 
 ## Unreleased
 
+### Changed
+
+- A `POST` (create, consent, upload, submit, blocked-face) is no longer retried after a 5xx, a
+  3xx, a 429 without `Retry-After`, or a transport failure that may have reached the server (a
+  timeout, a dropped connection). The server may already have acted on it, and a retry could create a
+  second verification or store an upload twice. It is still retried when the connection failed before the
+  request was sent, and on a 429 carrying `Retry-After`. `GET` requests and downloads keep their
+  retry behaviour.
+- `TransportException` takes a fifth constructor argument, `requestMayHaveBeenSent` (default `true`),
+  exposed as `requestMayHaveBeenSent()`. `CurlHttpClient` sets it to `false` for DNS, connect and TLS
+  handshake failures. A custom transport that never sets it keeps `GET` retries but loses `POST`
+  retries after a failed connection.
+- `FakeHttpClient::failedConnection()` throws a `TransportException` marked as never sent, so a
+  `POST` is retried after it; the new `FakeHttpClient::timeout()` throws one that may have been sent.
+
 ### Added
 
+- `RetryPolicy::isIdempotent()`.
 - `VerificationStatus::DOCUMENTS_REQUIRED` (`documents_required`), which the API reports while the
   latest attempt waits for document photos. `VerificationStatus::from()` on such a response used to
   throw `\ValueError`; read the field with `tryFrom()` so a status added later maps to `null`.

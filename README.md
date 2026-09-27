@@ -41,9 +41,21 @@ Every request is signed with `X-API-Key` and `X-HMAC-Signature`; you never touch
 | `base_url` | required | `https://api.proofage.xyz`; must have no path component |
 | `version` | `v1` | API version segment |
 | `timeout` | `30` | Seconds per attempt; a positive integer (sub-second timeouts are not supported) |
-| `retry_attempts` | `3` | Attempts for interactive requests; a transport failure, a 429, or any non-2xx status that is not a 4xx (a 3xx or a 5xx) earns another one |
+| `retry_attempts` | `3` | Attempts for interactive requests; see [Retries](#retries) |
 | `retry_delay` | `1000` | Milliseconds between attempts, constant; an integer, 0 allowed |
 | `download_retry_attempts` | `1` | Attempts for media downloads; only a transport failure is retried, never an HTTP status |
+
+### Retries
+
+A `GET` gets another attempt after a transport failure, a 429, or any non-2xx status that is not a
+4xx (a 3xx or a 5xx).
+
+A `POST` — `create()`, `acceptConsent()`, `uploadMedia()`, `submit()`, `blockFace()` — is retried
+only when repeating it cannot make the server act twice: when the connection failed before the
+request was sent (DNS, connection refused, TLS handshake), or on a 429 that carries `Retry-After`.
+A 5xx or a timeout on a `POST` is thrown at once, because the server may already have created the
+verification, stored the upload or submitted it. Catch the exception and decide: `get()` tells you
+whether a submit went through.
 
 The four numeric settings must be integers (integer-valued strings such as `getenv()` returns are
 accepted); a float or anything else throws `ProofAgeException` at construction.
@@ -271,7 +283,9 @@ it on your client. Any `Psr\Http\Client\ClientExceptionInterface` surfaces as
 
 Implement `ProofAge\Sdk\Http\HttpClient` — one method, `send(Request): Response` — and pass it as
 the second constructor argument. A transport sends exactly what it is given and never retries or
-throws on an HTTP status; the SDK owns both.
+throws on an HTTP status; the SDK owns both. When it fails below HTTP it throws `TransportException`;
+pass `requestMayHaveBeenSent: false` only when it knows the request never left (the connection was
+never made), which is what allows a `POST` to be retried.
 
 ## Testing your integration
 
@@ -297,7 +311,9 @@ $fake->assertSent(fn ($request) => $request->method === 'GET' && str_ends_with($
 $fake->assertSentCount(1);
 ```
 
-Patterns use `*` wildcards and are tried in order. `sent()` returns the requests as the transport
+Patterns use `*` wildcards and are tried in order. `FakeHttpClient::failedConnection()` fails
+before sending (a `POST` is retried after it); `FakeHttpClient::timeout()` fails after the request may
+have arrived (a `POST` is not). `sent()` returns the requests as the transport
 received them — signed, one per attempt — so you can assert `X-HMAC-Signature` and
 `$request->body->bytes` directly. An unmatched URL throws `\LogicException`.
 

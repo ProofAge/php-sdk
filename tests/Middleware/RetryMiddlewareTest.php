@@ -24,17 +24,50 @@ class RetryMiddlewareTest extends TestCase
         });
     }
 
-    private function request(RetryPolicy $policy): Request
+    private function request(RetryPolicy $policy, string $method = 'GET'): Request
     {
-        return new Request('GET', 'https://api.test.com/v1/workspace', '/v1/workspace', [], null, $policy, 30);
+        return new Request($method, 'https://api.test.com/v1/workspace', '/v1/workspace', [], null, $policy, 30);
     }
 
     /** @param list<Response|callable> $sequence */
-    private function sendThrough(RetryPolicy $policy, array $sequence, ?FakeHttpClient &$fake = null): Response
+    private function sendThrough(RetryPolicy $policy, array $sequence, ?FakeHttpClient &$fake = null, string $method = 'GET'): Response
     {
         $fake = new FakeHttpClient(['*' => $sequence]);
 
-        return $this->middleware()->handle($this->request($policy), static fn (Request $request): Response => $fake->send($request));
+        return $this->middleware()->handle($this->request($policy, $method), static fn (Request $request): Response => $fake->send($request));
+    }
+
+    public function test_interactive_does_not_retry_a_post_that_answered_5xx(): void
+    {
+        $response = $this->sendThrough(RetryPolicy::interactive(3, 1000), [FakeHttpClient::json([], 503), FakeHttpClient::json(['ok' => true])], $fake, 'POST');
+
+        $this->assertSame(503, $response->status());
+        $fake->assertSentCount(1);
+        $this->assertSame([], $this->sleeps);
+    }
+
+    public function test_interactive_does_not_retry_a_post_that_timed_out(): void
+    {
+        try {
+            $this->sendThrough(RetryPolicy::interactive(3, 0), [FakeHttpClient::timeout(), FakeHttpClient::json(['ok' => true])], $fake, 'POST');
+            $this->fail('Expected the timeout to surface.');
+        } catch (TransportException $e) {
+            $this->assertSame('Operation timed out', $e->getMessage());
+        }
+
+        $fake->assertSentCount(1);
+    }
+
+    public function test_interactive_retries_a_post_whose_connection_failed_and_a_rate_limit_with_retry_after(): void
+    {
+        $response = $this->sendThrough(RetryPolicy::interactive(3, 0), [
+            FakeHttpClient::failedConnection(),
+            FakeHttpClient::json(['error' => ['code' => 'RATE_LIMIT']], 429, ['Retry-After' => '1']),
+            FakeHttpClient::json(['ok' => true]),
+        ], $fake, 'POST');
+
+        $this->assertSame(['ok' => true], $response->json());
+        $fake->assertSentCount(3);
     }
 
     public function test_interactive_retries_a_429_once_then_returns_the_200(): void
