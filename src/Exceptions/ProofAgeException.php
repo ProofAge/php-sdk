@@ -6,6 +6,22 @@ namespace ProofAge\Sdk\Exceptions;
 
 use ProofAge\Sdk\Http\Response;
 
+/**
+ * A non-2xx answer from the API, and the base of every SDK exception.
+ *
+ * The API does not use one error body. getMessage(), getErrorCode() and getErrorData()
+ * read each shape it sends:
+ *
+ * - `{error: {code, message}}` — most errors (401, 404 MEDIA_NOT_FOUND, 422 submit, 429).
+ *   getErrorData() is the `error` object.
+ * - `{code, message, ...}` — 402 PAYMENT_METHOD_REQUIRED (with free_verifications_remaining,
+ *   trial_ends_at, trial_active) and the media quality errors of an upload (422
+ *   FACE_NOT_FOUND, MAX_ATTEMPTS_REACHED, ...; 500 VALIDATION_SERVICE_UNAVAILABLE).
+ *   getErrorData() is the whole body.
+ * - `{message, errors}` — request validation (422); getErrors() on ValidationException
+ *   reads `errors`. `{message}` — 403 access denied, 404 "Resource not found".
+ *   getErrorCode() is null for both; getErrorData() is the whole body.
+ */
 class ProofAgeException extends \Exception implements ExceptionInterface
 {
     protected ?Response $response = null;
@@ -26,12 +42,7 @@ class ProofAgeException extends \Exception implements ExceptionInterface
 
     public static function fromResponse(Response $response, string $message = ''): static
     {
-        $errorMessage = $message ?: 'ProofAge API request failed';
-
-        $json = $response->json();
-        if (is_array($json) && isset($json['error']['message']) && is_string($json['error']['message'])) {
-            $errorMessage = $json['error']['message'];
-        }
+        $errorMessage = self::messageFrom($response->json()) ?? ($message ?: 'ProofAge API request failed');
 
         // Subclasses that reshape the constructor (TransportException, WebhookVerificationException)
         // are never built here; the HTTP error family keeps this constructor, so new static is safe.
@@ -59,12 +70,30 @@ class ProofAgeException extends \Exception implements ExceptionInterface
 
     protected function parseErrorData(): void
     {
-        if ($this->response && $this->response->json()) {
-            $data = $this->response->json();
+        $data = $this->response?->json();
 
-            if (is_array($data) && isset($data['error']) && is_array($data['error'])) {
-                $this->errorData = $data['error'];
-            }
+        if (! is_array($data) || array_is_list($data)) {
+            return;
         }
+
+        $this->errorData = isset($data['error']) && is_array($data['error']) ? $data['error'] : $data;
+    }
+
+    /**
+     * `error.message` when the body nests its error, the top-level `message` otherwise.
+     */
+    private static function messageFrom(mixed $data): ?string
+    {
+        if (! is_array($data)) {
+            return null;
+        }
+
+        if (isset($data['error']) && is_array($data['error'])) {
+            $message = $data['error']['message'] ?? null;
+        } else {
+            $message = $data['message'] ?? null;
+        }
+
+        return is_string($message) && $message !== '' ? $message : null;
     }
 }

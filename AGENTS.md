@@ -85,11 +85,19 @@ Response: `204 No Content` (method returns `null`).
 ## Errors
 
 Non-2xx responses throw `ProofAge\Sdk\Exceptions\ProofAgeException` (`getCode()` is the HTTP
-status, `getErrorCode()`/`getErrorData()` come from the body's `error` object, `getResponse()`
-is the `ProofAge\Sdk\Http\Response`): `AuthenticationException` for 401,
-`ValidationException` (with `getErrors()`) for 422. A failure below HTTP — connection refused,
-DNS, TLS, timeout — throws `TransportException`, which never carries a response. Every SDK
-exception implements `ProofAge\Sdk\Exceptions\ExceptionInterface`.
+status, `getResponse()` is the `ProofAge\Sdk\Http\Response`): `AuthenticationException` for 401,
+`ValidationException` (with `getErrors()`) for 422. The API sends several error bodies and the
+exception reads each:
+
+| Body | Sent for | `getMessage()` | `getErrorCode()` | `getErrorData()` |
+|---|---|---|---|---|
+| `{ error: { code, message } }` | most errors: 401, 404 `MEDIA_NOT_FOUND`, 422 on submit, 429 `RATE_LIMIT` | `error.message` | `error.code` | the `error` object |
+| `{ code, message, ... }` | 402 `PAYMENT_METHOD_REQUIRED`; upload quality errors: 422 `FACE_NOT_FOUND`, `MAX_ATTEMPTS_REACHED`, ..., 500 `VALIDATION_SERVICE_UNAVAILABLE` | `message` | `code` | the whole body |
+| `{ message, errors }` | 422 request validation | `message` | `null` | the whole body; `getErrors()` is `errors` |
+| `{ message }` | 403 access denied, 404 `Resource not found` | `message` | `null` | the whole body |
+
+A failure below HTTP — connection refused, DNS, TLS, timeout — throws `TransportException`, which
+never carries a response. Every SDK exception implements `ProofAge\Sdk\Exceptions\ExceptionInterface`.
 
 ## Outbound webhook (ProofAge → your `callback_url` / workspace webhook URL)
 

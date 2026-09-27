@@ -117,10 +117,16 @@ try {
     // no response: $e->getResponse() is null, $e->getCode() is the cURL errno
 } catch (ProofAgeException $e) {
     $e->getCode();       // HTTP status
-    $e->getErrorCode();  // error.code from the body, e.g. MEDIA_NOT_FOUND
+    $e->getErrorCode();  // e.g. MEDIA_NOT_FOUND, PAYMENT_METHOD_REQUIRED, FACE_NOT_FOUND; null when the body has none
+    $e->getErrorData();  // the `error` object, or the whole body when it is not nested
     $e->getResponse();   // ProofAge\Sdk\Http\Response
 }
 ```
+
+The API nests most errors as `{"error": {"code", "message"}}` but answers 402 and the upload
+quality checks with a flat `{"code", "message"}`, request validation with `{"message", "errors"}`
+and 403 with `{"message"}`; the exception reads all of them. A 422 from an upload quality check is
+a `ValidationException` whose `getErrors()` is empty and whose `getErrorCode()` says what failed.
 
 Missing verification IDs and missing files throw `\InvalidArgumentException`.
 

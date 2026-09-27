@@ -8,6 +8,16 @@
   latest attempt waits for document photos. `VerificationStatus::from()` on such a response used to
   throw `\ValueError`; read the field with `tryFrom()` so a status added later maps to `null`.
 
+### Fixed
+
+- `ProofAgeException` reads every error body the API sends, not only `{"error": {...}}`. A flat
+  `{"code", "message"}` (402 `PAYMENT_METHOD_REQUIRED`, the upload quality errors such as 422
+  `FACE_NOT_FOUND` and 500 `VALIDATION_SERVICE_UNAVAILABLE`) now gives `getErrorCode()` and
+  `getMessage()`; a Laravel `{"message", "errors"}` or `{"message"}` body (422 validation, 403,
+  404 "Resource not found") gives `getMessage()`. All of these used to read as
+  "ProofAge API request failed" with a null code. When the body is not nested under `error`,
+  `getErrorData()` is the whole body instead of `[]`.
+
 ## 0.1.3 - 2026-09-03
 
 ### Fixed
