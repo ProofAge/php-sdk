@@ -20,5 +20,16 @@ class VerificationStatusTest extends TestCase
         $this->assertSame('abandoned', VerificationStatus::ABANDONED->value);
         $this->assertSame('expired', VerificationStatus::EXPIRED->value);
         $this->assertSame('review', VerificationStatus::REVIEW->value);
+        $this->assertSame('documents_required', VerificationStatus::DOCUMENTS_REQUIRED->value);
+    }
+
+    public function test_every_status_the_api_can_report_maps_and_an_unknown_one_does_not_throw(): void
+    {
+        foreach (['created', 'started', 'submitted', 'resubmission_requested', 'approved', 'declined', 'abandoned', 'expired', 'review', 'documents_required'] as $status) {
+            $this->assertInstanceOf(VerificationStatus::class, VerificationStatus::tryFrom($status), $status);
+        }
+
+        $this->assertCount(10, VerificationStatus::cases());
+        $this->assertNull(VerificationStatus::tryFrom('pending'));
     }
 }

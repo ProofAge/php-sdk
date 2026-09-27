@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `VerificationStatus::DOCUMENTS_REQUIRED` (`documents_required`), which the API reports while the
+  latest attempt waits for document photos. `VerificationStatus::from()` on such a response used to
+  throw `\ValueError`; read the field with `tryFrom()` so a status added later maps to `null`.
+
 ## 0.1.3 - 2026-09-03
 
 ### Fixed
