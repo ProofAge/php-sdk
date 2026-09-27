@@ -6,10 +6,10 @@
 
 - A `POST` (create, consent, upload, submit, blocked-face) is no longer retried after a 5xx, a
   3xx, a 429 without `Retry-After`, or a transport failure that may have reached the server (a
-  timeout, a dropped connection). The server may already have acted on it, and a retry could create a
-  second verification or store an upload twice. It is still retried when the connection failed before the
-  request was sent, and on a 429 carrying `Retry-After`. `GET` requests and downloads keep their
-  retry behaviour.
+  timeout, a dropped connection). The server may already have acted on it, and a retry could
+  create a second verification or store an upload twice. It is still retried when the connection
+  failed before the request was sent, and on a 429 carrying `Retry-After`. `GET` requests and
+  downloads keep their retry behaviour.
 - `TransportException` takes a fifth constructor argument, `requestMayHaveBeenSent` (default `true`),
   exposed as `requestMayHaveBeenSent()`. `CurlHttpClient` sets it to `false` for DNS, connect and TLS
   handshake failures. A custom transport that never sets it keeps `GET` retries but loses `POST`

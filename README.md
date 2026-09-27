@@ -305,7 +305,7 @@ use ProofAge\Sdk\Testing\FakeHttpClient;
 $fake = new FakeHttpClient([
     'api.proofage.xyz/v1/workspace' => FakeHttpClient::json(['id' => 'ws_1', 'name' => 'Acme']),
     'api.proofage.xyz/v1/verifications/*' => [               // a sequence
-        FakeHttpClient::json(['error' => ['code' => 'RATE_LIMIT']], 429),
+        FakeHttpClient::json(['error' => ['code' => 'RATE_LIMIT']], 429, ['Retry-After' => '1']),
         FakeHttpClient::json(['id' => 'ver_1', 'status' => 'created']),
     ],
     '*' => FakeHttpClient::failedConnection(),
