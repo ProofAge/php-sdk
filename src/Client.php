@@ -15,6 +15,7 @@ use ProofAge\Sdk\Http\HttpClient;
 use ProofAge\Sdk\Http\Request;
 use ProofAge\Sdk\Http\Response;
 use ProofAge\Sdk\Http\RetryPolicy;
+use ProofAge\Sdk\Http\SdkIdentity;
 use ProofAge\Sdk\Middleware\Pipeline;
 use ProofAge\Sdk\Middleware\RetryMiddleware;
 use ProofAge\Sdk\Middleware\SignMiddleware;
@@ -32,6 +33,24 @@ use ProofAge\Sdk\Stream\ResourceStream;
  */
 class Client
 {
+    /**
+     * This package's version, reported in X-ProofAge-Sdk and User-Agent. Equal to the newest
+     * released heading in CHANGELOG.md (tests/VersionTest.php); bumped in the release commit.
+     */
+    public const VERSION = '0.2.0';
+
+    /**
+     * Sent on every request: `name/version` tokens separated by single spaces, outermost
+     * wrapper first and this SDK's `php/{VERSION}` last. Not part of the HMAC signature.
+     */
+    public const SDK_HEADER = SdkIdentity::HEADER;
+
+    /** One `name/version` token of X-ProofAge-Sdk: a lowercase name and a version without spaces or slashes. */
+    private const SDK_TOKEN_PATTERN = '/^[a-z0-9][a-z0-9._-]*\/[0-9A-Za-z][0-9A-Za-z.+_-]*$/';
+
+    /** One or more User-Agent products (`Name/version`), separated by single spaces. */
+    private const USER_AGENT_PREFIX_PATTERN = '#^[!\#$%&\'*+.^_`|~0-9A-Za-z-]+(/[!\#$%&\'*+.^_`|~0-9A-Za-z-]+)?( [!\#$%&\'*+.^_`|~0-9A-Za-z-]+(/[!\#$%&\'*+.^_`|~0-9A-Za-z-]+)?)*$#';
+
     /**
      * The Accept header of a media download.
      *
@@ -55,7 +74,11 @@ class Client
     private ExceptionFactory $exceptions;
 
     /**
-     * @param  array{api_key?: string, secret_key?: string, base_url?: string, version?: string, timeout?: int, retry_attempts?: int, retry_delay?: int, download_retry_attempts?: int}  $config
+     * `sdk_tokens` and `user_agent_prefix` are for a package that wraps this SDK: its
+     * `name/version` tokens are prepended to X-ProofAge-Sdk (outermost first) and its products
+     * to the default User-Agent. Nothing can remove this SDK's own token.
+     *
+     * @param  array{api_key?: string, secret_key?: string, base_url?: string, version?: string, timeout?: int, retry_attempts?: int, retry_delay?: int, download_retry_attempts?: int, sdk_tokens?: list<string>, user_agent_prefix?: string}  $config
      * @param  HttpClient|null  $transport  defaults to CurlHttpClient
      * @param  ExceptionFactory|null  $exceptions  defaults to the SDK's own exception classes
      * @param  callable(int): void|null  $sleep  waits between retry attempts; receives microseconds and
@@ -79,7 +102,7 @@ class Client
         $this->validateConfig();
 
         $this->transport = $transport ?? new CurlHttpClient;
-        $this->sign = new SignMiddleware((string) $this->config['api_key'], new Signer((string) $this->config['secret_key']));
+        $this->sign = new SignMiddleware((string) $this->config['api_key'], new Signer((string) $this->config['secret_key']), $this->sdkIdentity());
         $this->pipeline = new Pipeline($this->transport, $this->sign, new RetryMiddleware($sleep));
     }
 
@@ -303,6 +326,58 @@ class Client
         foreach (['timeout' => 1, 'retry_attempts' => 0, 'retry_delay' => 0, 'download_retry_attempts' => 0] as $key => $minimum) {
             $this->config[$key] = $this->integerSetting($key, $minimum);
         }
+
+        $this->config['sdk_tokens'] = $this->sdkTokensSetting();
+        $this->config['user_agent_prefix'] = $this->userAgentPrefixSetting();
+    }
+
+    /**
+     * X-ProofAge-Sdk: the wrapper tokens from `sdk_tokens`, then `php/{VERSION}`. The User-Agent
+     * is `ProofAge-PHP/{VERSION} (PHP {PHP_VERSION})` behind `user_agent_prefix`.
+     */
+    private function sdkIdentity(): SdkIdentity
+    {
+        /** @var list<string> $tokens */
+        $tokens = $this->config['sdk_tokens'];
+        $prefix = (string) $this->config['user_agent_prefix'];
+
+        return new SdkIdentity(
+            [...$tokens, 'php/'.self::VERSION],
+            ($prefix === '' ? '' : $prefix.' ').'ProofAge-PHP/'.self::VERSION.' (PHP '.PHP_VERSION.')',
+        );
+    }
+
+    /** @return list<string> */
+    private function sdkTokensSetting(): array
+    {
+        $tokens = $this->config['sdk_tokens'] ?? [];
+
+        if (! is_array($tokens) || ! array_is_list($tokens)) {
+            throw $this->exceptions->configuration('sdk_tokens must be a list of "name/version" strings, '.get_debug_type($tokens).' given');
+        }
+
+        foreach ($tokens as $token) {
+            if (! is_string($token) || preg_match(self::SDK_TOKEN_PATTERN, $token) !== 1) {
+                $shown = is_string($token) ? json_encode($token, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : get_debug_type($token);
+
+                throw $this->exceptions->configuration("sdk_tokens entries must be \"name/version\" with a lowercase name and no spaces, {$shown} given");
+            }
+        }
+
+        return $tokens;
+    }
+
+    private function userAgentPrefixSetting(): string
+    {
+        $prefix = $this->config['user_agent_prefix'] ?? '';
+
+        if (! is_string($prefix) || ($prefix !== '' && preg_match(self::USER_AGENT_PREFIX_PATTERN, $prefix) !== 1)) {
+            $shown = is_string($prefix) ? json_encode($prefix, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : get_debug_type($prefix);
+
+            throw $this->exceptions->configuration("user_agent_prefix must be User-Agent products (\"Name/version\") separated by single spaces, {$shown} given");
+        }
+
+        return $prefix;
     }
 
     /**

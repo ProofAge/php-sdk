@@ -30,7 +30,9 @@ $client = new Client([
 $workspace = $client->workspace()->get();
 ```
 
-Every request is signed with `X-API-Key` and `X-HMAC-Signature`; you never touch either.
+Every request is signed with `X-API-Key` and `X-HMAC-Signature`; you never touch either. It also
+says which SDK sent it: `X-ProofAge-Sdk: php/0.3.0` and `User-Agent: ProofAge-PHP/0.3.0 (PHP 8.4.1)`
+(see [SDK identification](#sdk-identification)).
 
 ### Configuration
 
@@ -44,6 +46,8 @@ Every request is signed with `X-API-Key` and `X-HMAC-Signature`; you never touch
 | `retry_attempts` | `3` | Attempts for interactive requests; see [Retries](#retries) |
 | `retry_delay` | `1000` | Milliseconds between attempts, constant; an integer, 0 allowed |
 | `download_retry_attempts` | `1` | Attempts for media downloads; only a transport failure is retried, never an HTTP status |
+| `sdk_tokens` | `[]` | For a package wrapping this SDK: `name/version` tokens prepended to `X-ProofAge-Sdk` |
+| `user_agent_prefix` | `''` | For a package wrapping this SDK: `Name/version` products prepended to the default `User-Agent` |
 
 ### Retries
 
@@ -197,8 +201,9 @@ timestamp tolerance defaults to 300 seconds (third constructor argument).
 
 A middleware is `callable(Request $request, callable $next): Response`. It runs once per HTTP
 attempt and **before signing**, so whatever it changes is what gets signed — a middleware can add
-a header or rewrite the body and the signature stays valid. It never sees `X-API-Key` or
-`X-HMAC-Signature`; those are added below it. The first middleware pushed is the outermost.
+a header or rewrite the body and the signature stays valid. It never sees `X-API-Key`,
+`X-HMAC-Signature`, `X-ProofAge-Sdk` or the default `User-Agent`; those are added below it. The
+first middleware pushed is the outermost.
 
 ```php
 use ProofAge\Sdk\Http\Request;
@@ -222,6 +227,32 @@ $client->removeMiddleware('request-id');
 
 A middleware that returns a `Response` without calling `$next` short-circuits: nothing is signed,
 no event fires, nothing is sent.
+
+## SDK identification
+
+Every request carries `X-ProofAge-Sdk`: `name/version` tokens separated by single spaces, the
+outermost wrapper first and this SDK's `php/{Client::VERSION}` last. On its own the SDK sends
+`php/0.3.0`; `proofage/laravel-client` sends `laravel/0.9.0 php/0.3.0` (versions here are
+examples). The `User-Agent` is `ProofAge-PHP/0.3.0 (PHP 8.4.1)` unless the request already has
+one. Neither header is part of the HMAC signature.
+
+Both are set below the middleware, on every attempt, so a middleware cannot remove or replace
+`X-ProofAge-Sdk` (whatever it sets there is overwritten); it can set its own `User-Agent`, which
+is then sent as is. A package that wraps the SDK adds itself with two options, validated at
+construction:
+
+```php
+$client = new Client($config + [
+    'sdk_tokens' => ['acme-shop/2.1.0'],              // lowercase name, outermost first
+    'user_agent_prefix' => 'AcmeShop/2.1.0',          // User-Agent products, space-separated
+]);
+// X-ProofAge-Sdk: acme-shop/2.1.0 php/0.3.0
+// User-Agent: AcmeShop/2.1.0 ProofAge-PHP/0.3.0 (PHP 8.4.1)
+```
+
+A PSR-18 client's own default `User-Agent` (Guzzle's `GuzzleHttp/7`, or one set in its
+`headers` option) is replaced, because the SDK puts its `User-Agent` on the request itself; set
+yours through a middleware instead.
 
 ## Events
 

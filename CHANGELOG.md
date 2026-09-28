@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Every request carries `X-ProofAge-Sdk: php/{version}` and, unless the request already has one,
+  `User-Agent: ProofAge-PHP/{version} (PHP {PHP_VERSION})`, on every attempt and every transport.
+  Neither is part of the HMAC signature. The API uses the header to tell SDK traffic apart.
+- `Client::VERSION` (the version these headers report, pinned to this changelog by a test) and
+  `Client::SDK_HEADER`.
+- The `sdk_tokens` and `user_agent_prefix` options, for a package that wraps the SDK: their
+  `name/version` tokens and `User-Agent` products are prepended to the SDK's own, which a
+  middleware cannot remove. An invalid value throws `ProofAgeException` at construction.
+- `SignMiddleware` takes an optional third argument, the identity it applies before signing.
+
+### Changed
+
+- A `PSR-18` client's default `User-Agent` (Guzzle's `GuzzleHttp/7`, or one configured on the
+  client) is replaced by the SDK's; set your own through a middleware.
+
 ## 0.2.0 - 2026-09-27
 
 ### Changed

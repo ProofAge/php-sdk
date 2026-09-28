@@ -205,4 +205,20 @@ class Psr18HttpClientTest extends TestCase
             $echo['headers']['x-hmac-signature'],
         );
     }
+
+    public function test_the_client_replaces_guzzles_default_user_agent_and_sends_the_sdk_header(): void
+    {
+        $client = new Client([
+            'api_key' => 'psr-key',
+            'secret_key' => 'psr-secret',
+            'base_url' => self::$server->url(),
+            'retry_attempts' => 1,
+        ], $this->transport());
+
+        $echo = $client->makeRequest('GET', 'workspace')->json();
+
+        $this->assertSame('php/'.Client::VERSION, $echo['headers']['x-proofage-sdk']);
+        $this->assertSame('ProofAge-PHP/'.Client::VERSION.' (PHP '.PHP_VERSION.')', $echo['headers']['user-agent']);
+        $this->assertStringNotContainsString('GuzzleHttp', $echo['headers']['user-agent']);
+    }
 }

@@ -73,6 +73,31 @@ class ClientCurlIntegrationTest extends TestCase
         );
     }
 
+    public function test_the_sdk_header_and_user_agent_reach_the_server(): void
+    {
+        $echo = $this->client()->makeRequest('GET', 'workspace')->json();
+
+        $this->assertSame('php/'.Client::VERSION, $echo['headers']['x-proofage-sdk']);
+        $this->assertSame('ProofAge-PHP/'.Client::VERSION.' (PHP '.PHP_VERSION.')', $echo['headers']['user-agent']);
+        $this->assertSame(hash_hmac('sha256', 'GET'.$echo['path'], self::SECRET), $echo['headers']['x-hmac-signature'], 'The header is not signed.');
+    }
+
+    public function test_a_wrapper_token_and_product_reach_the_server_ahead_of_the_sdk_own(): void
+    {
+        $echo = $this->client(['sdk_tokens' => ['laravel/0.9.0'], 'user_agent_prefix' => 'ProofAge-Laravel/0.9.0'])
+            ->makeRequest('POST', 'verifications', ['external_id' => 'u-1'])->json();
+
+        $this->assertSame('laravel/0.9.0 php/'.Client::VERSION, $echo['headers']['x-proofage-sdk']);
+        $this->assertSame('ProofAge-Laravel/0.9.0 ProofAge-PHP/'.Client::VERSION.' (PHP '.PHP_VERSION.')', $echo['headers']['user-agent']);
+    }
+
+    public function test_a_streamed_download_sends_the_sdk_header(): void
+    {
+        $echo = json_decode($this->client()->makeStreamedRequest('GET', 'verifications/ver_1/media/med_1')->body(), true);
+
+        $this->assertSame('php/'.Client::VERSION, $echo['headers']['x-proofage-sdk']);
+    }
+
     public function test_multipart_request_signature_verifies_against_the_received_fields_and_file_hashes(): void
     {
         $path = sys_get_temp_dir().'/proofage-integration-'.uniqid().'.jpg';

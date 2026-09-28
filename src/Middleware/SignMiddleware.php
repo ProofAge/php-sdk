@@ -11,11 +11,13 @@ use ProofAge\Sdk\Events\ResponseEvent;
 use ProofAge\Sdk\Exceptions\TransportException;
 use ProofAge\Sdk\Http\Request;
 use ProofAge\Sdk\Http\Response;
+use ProofAge\Sdk\Http\SdkIdentity;
 use ProofAge\Sdk\Signing\Signer;
 
 /**
  * The innermost layer: adds X-API-Key and X-HMAC-Signature to whatever reaches it, so
- * nothing a user middleware does can invalidate the signature, and fires the events
+ * nothing a user middleware does can invalidate the signature, sets the SDK identification
+ * headers (X-ProofAge-Sdk, the default User-Agent) for the same reason, and fires the events
  * around the transport call. Duration is measured here with hrtime() and attached to
  * the response before onResponse fires: one clock, one place.
  */
@@ -33,6 +35,7 @@ final class SignMiddleware
     public function __construct(
         #[\SensitiveParameter] private readonly string $apiKey,
         private readonly Signer $signer,
+        private readonly ?SdkIdentity $identity = null,
     ) {}
 
     /**
@@ -84,6 +87,10 @@ final class SignMiddleware
      */
     public function handle(Request $request, callable $next): Response
     {
+        if ($this->identity !== null) {
+            $request = $this->identity->apply($request);
+        }
+
         $signed = $request
             ->withHeader('X-API-Key', $this->apiKey)
             ->withHeader('X-HMAC-Signature', $this->signer->sign($request));

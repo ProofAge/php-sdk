@@ -10,7 +10,10 @@ Responses are never wrapped in `data`. This SDK is the
 single source of truth for endpoint paths and request shapes; `proofage/laravel-client` is
 an integration layer on top of it.
 
-All requests send `X-API-Key` and `X-HMAC-Signature` to `{base_url}/{version}/{path}`. The
+All requests send `X-API-Key` and `X-HMAC-Signature` to `{base_url}/{version}/{path}`, plus
+`X-ProofAge-Sdk: php/{Client::VERSION}` (a wrapper's `sdk_tokens` go first, e.g.
+`laravel/0.9.0 php/0.3.0`) and, unless one is set, `User-Agent: ProofAge-PHP/{version} (PHP {PHP_VERSION})`;
+neither is signed. The
 `base_url` config key is required and has no default — use `https://api.proofage.xyz`, with no
 path; `version` defaults to `v1`.
 
