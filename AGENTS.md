@@ -42,7 +42,7 @@ Response: `{ id: string, name: string, flow_type: string, mode: string, age_mode
 
 ### GET /consent — `$client->workspace()->getConsent()`
 Request: none.
-Response: `{ id: int, version: string, text_sha256: string, url: string }`
+Response: `{ id: int, version: int, text_sha256: string, url: string }` (`version` is informational: accept consent with `id` and `text_sha256`)
 
 ### POST /verifications — `$client->verifications()->create($data)`
 Request: `{ fingerprint?: string(64), callback_url?: url(<=2048), external_id?: string(<=255), external_metadata?: object, metadata?: object, page_url?: string(<=8192) }`

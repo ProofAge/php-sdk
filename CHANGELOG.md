@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `workspace()->getConsent()` is documented as returning `version: int`, the type the API has
+  always sent; the `@return` shape and AGENTS.md said `string`, after the API's own documentation
+  (corrected in the app on 2026-09-28). The value your code receives is unchanged.
+
 ## 0.3.0 - 2026-09-28
 
 ### Added

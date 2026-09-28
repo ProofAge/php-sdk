@@ -17,7 +17,11 @@ class ApiContractMap
      * `response` is null when the API answers 2xx with no body at all (the method returns
      * null), and `[]` when the body is not JSON (the media download's bytes).
      *
-     * @return array<string, array{method: string, path: string, operationId: string, request: list<string>, response: list<string>|null}>
+     * `responseStatus` names the success status the SDK receives when the operation documents
+     * more than one: createVerification also documents a 200 compact session, sent only to the
+     * hosted widget's `X-ProofAge-Client: native` header, which this SDK never sends.
+     *
+     * @return array<string, array{method: string, path: string, operationId: string, request: list<string>, response: list<string>|null, responseStatus?: string}>
      */
     public static function operations(): array
     {
@@ -36,6 +40,7 @@ class ApiContractMap
                 'method' => 'POST', 'path' => '/verifications', 'operationId' => 'createVerification',
                 'request' => ['fingerprint', 'callback_url', 'external_id', 'external_metadata', 'metadata', 'page_url'],
                 'response' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at', 'url'],
+                'responseStatus' => '201',
             ],
             'verifications.find' => [
                 'method' => 'GET', 'path' => '/verifications/{verification}', 'operationId' => 'getVerification',

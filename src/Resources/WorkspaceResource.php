@@ -42,7 +42,7 @@ class WorkspaceResource
     /**
      * Get consent information.
      *
-     * @return array{id: int, version: string, text_sha256: string, url: string}|null
+     * @return array{id: int, version: int, text_sha256: string, url: string}|null
      */
     public function getConsent(): ?array
     {

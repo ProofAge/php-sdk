@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ProofAge\Sdk\Tests;
 
 use PHPUnit\Framework\TestCase;
+use ProofAge\Sdk\Resources\WorkspaceResource;
 use ProofAge\Sdk\Tests\Support\ApiContractMap;
 
 class ApiContractTest extends TestCase
@@ -84,7 +85,7 @@ class ApiContractTest extends TestCase
                 continue;
             }
 
-            $specFields = $this->responseProperties($op['path'], $op['method']);
+            $specFields = $this->responseProperties($op['path'], $op['method'], $op['responseStatus'] ?? null);
 
             if ($specFields === []) {
                 // The spec does not describe a JSON body here (the media download's bytes).
@@ -168,6 +169,17 @@ class ApiContractTest extends TestCase
      *
      * @return array<string, mixed>
      */
+    public function test_the_consent_version_is_typed_as_the_integer_the_api_sends(): void
+    {
+        // The name-only checks above let `version: string` drift from the API's integer.
+        $schema = $this->spec['paths']['/consent']['get']['responses']['200']['content']['application/json']['schema'];
+        $this->assertSame('integer', $schema['properties']['version']['type'] ?? null);
+
+        $doc = (string) (new \ReflectionMethod(WorkspaceResource::class, 'getConsent'))->getDocComment();
+        $this->assertStringContainsString('version: int,', $doc);
+        $this->assertStringNotContainsString('version: string', (string) file_get_contents(dirname(__DIR__).'/AGENTS.md'));
+    }
+
     private function requestSchema(string $path, string $method): array
     {
         $content = $this->spec['paths'][$path][strtolower($method)]['requestBody']['content'] ?? [];
@@ -182,12 +194,12 @@ class ApiContractTest extends TestCase
      *
      * @return list<string>
      */
-    private function responseProperties(string $path, string $method): array
+    private function responseProperties(string $path, string $method, ?string $status = null): array
     {
         $responses = $this->spec['paths'][$path][strtolower($method)]['responses'] ?? [];
 
         foreach ($responses as $code => $response) {
-            if (! str_starts_with((string) $code, '2')) {
+            if (! str_starts_with((string) $code, '2') || ($status !== null && (string) $code !== $status)) {
                 continue;
             }
             $schema = $response['content']['application/json']['schema'] ?? null;

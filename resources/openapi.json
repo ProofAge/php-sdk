@@ -51,7 +51,7 @@
                     "200": {
                         "description": "The media was stored. The body is empty.",
                         "content": {
-                            "text/plain": {
+                            "text/html": {
                                 "schema": {
                                     "type": "string",
                                     "examples": [
@@ -203,40 +203,38 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "`VerificationResource`",
+                        "description": "Only when the request carries `X-ProofAge-Client: native` (the hosted widget): the compact session instead of the verification.",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "anyOf": [
+                                    "type": "object",
+                                    "examples": [
                                         {
-                                            "$ref": "#/components/schemas/VerificationResource"
-                                        },
-                                        {
-                                            "type": "object",
-                                            "properties": {
-                                                "host": {
-                                                    "type": "string"
-                                                },
-                                                "id": {
-                                                    "type": "string"
-                                                },
-                                                "session_token": {
-                                                    "type": [
-                                                        "string",
-                                                        "null"
-                                                    ]
-                                                },
-                                                "url": {
-                                                    "type": "string"
-                                                }
-                                            },
-                                            "required": [
-                                                "host",
-                                                "id",
-                                                "session_token",
-                                                "url"
-                                            ]
+                                            "host": "https://idv.proofage.xyz",
+                                            "id": "550e8400-e29b-41d4-a716-446655440000",
+                                            "session_token": "eyJ...",
+                                            "url": "https://idv.proofage.xyz/v/eyJ..."
                                         }
+                                    ],
+                                    "properties": {
+                                        "host": {
+                                            "type": "string"
+                                        },
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "session_token": {
+                                            "type": "string"
+                                        },
+                                        "url": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "host",
+                                        "id",
+                                        "session_token",
+                                        "url"
                                     ]
                                 }
                             }
@@ -1046,7 +1044,7 @@
                     "200": {
                         "description": "The verification was submitted. The body is empty.",
                         "content": {
-                            "text/plain": {
+                            "text/html": {
                                 "schema": {
                                     "type": "string",
                                     "examples": [
@@ -1212,7 +1210,7 @@
                                     "examples": [
                                         {
                                             "id": 1,
-                                            "version": "1.0",
+                                            "version": 2,
                                             "text_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
                                             "url": "https://app.proofage.xyz/consent"
                                         }
@@ -1222,7 +1220,7 @@
                                             "type": "integer"
                                         },
                                         "version": {
-                                            "type": "string"
+                                            "type": "integer"
                                         },
                                         "text_sha256": {
                                             "type": "string"
@@ -1403,7 +1401,7 @@
                             "null"
                         ],
                         "format": "uri",
-                        "description": "SHA256 hash is 64 characters, optional for backward compatibility",
+                        "description": "SHA256 hash is 64 characters, optional for backward compatibility\nWhere the person's browser is sent after the final screen. Ignored unless the request is HMAC-signed.",
                         "maxLength": 2048
                     },
                     "external_id": {
@@ -1411,6 +1409,7 @@
                             "string",
                             "null"
                         ],
+                        "description": "Your identifier for the person. Ignored unless the request is HMAC-signed: the public key alone cannot tie a session to your user.",
                         "maxLength": 255
                     },
                     "external_metadata": {
@@ -1418,6 +1417,7 @@
                             "array",
                             "null"
                         ],
+                        "description": "Free-form data returned in the API and webhooks. Accepted without a signature, so treat it as client-supplied.",
                         "items": {
                             "type": "string"
                         }
