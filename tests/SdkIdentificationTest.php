@@ -67,6 +67,23 @@ class SdkIdentificationTest extends TestCase
         $this->assertSame(self::ownUserAgent(), $sent->header('User-Agent'));
     }
 
+    public function test_a_subclass_that_overrides_validate_config_still_identifies_itself(): void
+    {
+        // Client is documented as subclassable and validateConfig() is protected; a subclass
+        // written before 0.3.0 never stores sdk_tokens / user_agent_prefix.
+        $fake = new FakeHttpClient(['*' => FakeHttpClient::json(['ok' => true])]);
+        $client = new class(self::CONFIG, $fake) extends Client
+        {
+            protected function validateConfig(): void {}
+        };
+
+        $client->makeRequest('GET', 'workspace');
+
+        $sent = $this->onlySent($fake);
+        $this->assertSame(self::ownToken(), $sent->header('X-ProofAge-Sdk'));
+        $this->assertSame(self::ownUserAgent(), $sent->header('User-Agent'));
+    }
+
     public function test_a_bodyless_request_carries_the_sdk_header(): void
     {
         $this->client([], $fake)->workspace()->get();

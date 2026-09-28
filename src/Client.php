@@ -337,9 +337,10 @@ class Client
      */
     private function sdkIdentity(): SdkIdentity
     {
+        // A subclass that overrides validateConfig() never stores these: default them.
         /** @var list<string> $tokens */
-        $tokens = $this->config['sdk_tokens'];
-        $prefix = (string) $this->config['user_agent_prefix'];
+        $tokens = $this->config['sdk_tokens'] ?? [];
+        $prefix = (string) ($this->config['user_agent_prefix'] ?? '');
 
         return new SdkIdentity(
             [...$tokens, 'php/'.self::VERSION],
