@@ -152,8 +152,8 @@ Body:
 
 This contract is drift-tested against `resources/openapi.json` via `tests/ApiContractTest.php`,
 so it stays aligned with the API. Maintainers refreshing it after an API change: run
-`composer run sync-spec` (copies the app's generated spec into `resources/`), then make
-`tests/ApiContractTest.php` pass by updating `tests/Support/ApiContractMap.php`, the
-`@param`/`@return` shapes in `src/Resources/`, and this file together. See the SDK
-contract-sync runbook in the ProofAge app repo (`developer-docs/README.md`), the single source of
-truth for all SDKs.
+`composer run sync-spec` (copies the published spec from `https://docs.proofage.xyz/openapi.json`
+into `resources/`), then make `tests/ApiContractTest.php` pass by updating
+`tests/Support/ApiContractMap.php`, the `@param`/`@return` shapes in `src/Resources/`, and this
+file together. The checklist for carrying an API change to every client is
+`.ai/guidelines/api-changes.md` in the ProofAge app repo.

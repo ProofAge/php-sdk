@@ -3,18 +3,33 @@
 declare(strict_types=1);
 
 /*
- * Copies the app's generated OpenAPI spec into this package's bundled resources.
- * Source defaults to the sibling app repo; override with PROOFAGE_OPENAPI_SRC.
- * Regenerate the source first in the app: `cd developer-docs && npm run generate:openapi`.
+ * Copies the published OpenAPI spec into this package's bundled resources.
+ * Source defaults to https://docs.proofage.xyz/openapi.json. PROOFAGE_OPENAPI_SRC overrides
+ * it with another URL or a local file, for example the docs repo's openapi.json before it
+ * is published (the docs repo regenerates it from the app with scripts/sync_openapi.py).
  */
 
-$src = getenv('PROOFAGE_OPENAPI_SRC')
-    ?: __DIR__.'/../../proofageapp/developer-docs/public/openapi.json';
+$src = getenv('PROOFAGE_OPENAPI_SRC') ?: 'https://docs.proofage.xyz/openapi.json';
 $dest = __DIR__.'/../resources/openapi.json';
 
-if (! is_file($src)) {
+$isUrl = (bool) preg_match('#^https?://#', $src);
+
+if (! $isUrl && ! is_file($src)) {
     fwrite(STDERR, "Source spec not found: {$src}\n");
-    fwrite(STDERR, "Run `npm run generate:openapi` in the app, or set PROOFAGE_OPENAPI_SRC.\n");
+    exit(1);
+}
+
+$body = @file_get_contents($src);
+
+if ($body === false) {
+    fwrite(STDERR, "Could not read {$src}\n");
+    exit(1);
+}
+
+try {
+    json_decode($body, false, 512, JSON_THROW_ON_ERROR);
+} catch (JsonException $e) {
+    fwrite(STDERR, "{$src} is not JSON: {$e->getMessage()}\n");
     exit(1);
 }
 
@@ -23,8 +38,8 @@ if (! is_dir(dirname($dest)) && ! mkdir($concurrent = dirname($dest), 0755, true
     exit(1);
 }
 
-if (! copy($src, $dest)) {
-    fwrite(STDERR, "Copy failed: {$src} -> {$dest}\n");
+if (file_put_contents($dest, $body) === false) {
+    fwrite(STDERR, "Write failed: {$dest}\n");
     exit(1);
 }
 
