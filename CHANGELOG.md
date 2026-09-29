@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.2 - 2026-09-29
+
+### Deprecated
+
+- The fields only the ProofAge widget sends are no longer part of the public API and are marked
+  deprecated: `fingerprint` and `page_url` on `create()`, the browser fields of `acceptConsent()`
+  (`device`, `in_app_browser`, `camera_permission`, `camera_policy_allowed`, `in_iframe`,
+  `referrer`), and the capture fields and the `liveness_selfie` type of `uploadMedia()`. The API
+  still accepts them, so nothing changes for code that sends them; they will leave the array
+  shapes in a future minor release. `AGENTS.md` documents only the public contract.
+
+### Changed
+
+- `resources/openapi.json` is synced from the published docs (`https://docs.proofage.xyz/openapi.json`),
+  and `composer run sync-spec` reads it from there by default.
+
 ## 0.3.1 - 2026-09-28
 
 ### Fixed
