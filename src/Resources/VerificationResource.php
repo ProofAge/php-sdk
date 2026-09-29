@@ -33,8 +33,8 @@ class VerificationResource
      * `callback_url` is where the person's browser is sent when they finish, overriding the
      * workspace's redirect URL for this verification (it comes back as `redirect_url`). It
      * is not a webhook: status webhooks always go to the workspace's webhook URL.
-     * `page_url` is the page the flow was started from; only its scheme, host and path are
-     * kept.
+     * `fingerprint` and `page_url` are deprecated: the ProofAge widget sends them, they are not
+     * part of the public API, and they will be removed from this shape in a future minor release.
      *
      * `status` is one of the {@see VerificationStatus} values; read it with tryFrom().
      * `duplicate_check` lists the accounts whose face matched this one (`duplicate_count`
@@ -137,9 +137,8 @@ class VerificationResource
      * Accept consent for verification.
      *
      * `consent_version_id` and `text_sha256` come from WorkspaceResource::getConsent(). The
-     * other fields are optional browser details a widget reports, kept so a verification
-     * that stalls before its first upload still carries technical context; a server-side
-     * integration normally leaves them out.
+     * other fields are deprecated: the ProofAge widget sends them, they are not part of the
+     * public API, and they will be removed from this shape in a future minor release.
      *
      * @param  array{
      *     consent_version_id: int,
@@ -180,6 +179,10 @@ class VerificationResource
      * `file` may be a path, any \SplFileInfo (Illuminate\Http\UploadedFile and Symfony's
      * UploadedFile included; their client original name is used as the filename), or a
      * FilePart. A path that does not exist throws \InvalidArgumentException.
+     *
+     * `liveness_selfie` and the fields after `document` are deprecated: the ProofAge widget sends
+     * them, they are not part of the public API, and they will be removed from this shape in a
+     * future minor release. Upload a person's selfie as `selfie`.
      *
      * The API answers 200 with an empty body, so this returns null. A failed quality check
      * throws a ValidationException whose getErrorCode() names it (FACE_NOT_FOUND, ...).

@@ -38,7 +38,7 @@ class ApiContractMap
             ],
             'verifications.create' => [
                 'method' => 'POST', 'path' => '/verifications', 'operationId' => 'createVerification',
-                'request' => ['fingerprint', 'callback_url', 'external_id', 'external_metadata', 'metadata', 'page_url'],
+                'request' => ['callback_url', 'external_id', 'external_metadata', 'metadata'],
                 'response' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at', 'url'],
                 'responseStatus' => '201',
             ],
@@ -49,12 +49,12 @@ class ApiContractMap
             ],
             'verifications.acceptConsent' => [
                 'method' => 'POST', 'path' => '/verifications/{verification}/consent', 'operationId' => 'acceptConsent',
-                'request' => ['consent_version_id', 'text_sha256', 'device', 'in_app_browser', 'in_iframe', 'referrer', 'camera_permission', 'camera_policy_allowed'],
+                'request' => ['consent_version_id', 'text_sha256'],
                 'response' => ['consent_version_id', 'consent_accepted_at'],
             ],
             'verifications.uploadMedia' => [
                 'method' => 'POST', 'path' => '/verifications/{verification}/media', 'operationId' => 'uploadMedia',
-                'request' => ['file', 'type', 'side', 'document', 'fingerprint', 'head_turn_step', 'capture_resolution', 'device_info', 'liveness_telemetry'],
+                'request' => ['file', 'type', 'side', 'document'],
                 'response' => null,
             ],
             'verifications.submit' => [

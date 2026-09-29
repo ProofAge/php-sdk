@@ -45,9 +45,9 @@ Request: none.
 Response: `{ id: int, version: int, text_sha256: string, url: string }` (`version` is informational: accept consent with `id` and `text_sha256`)
 
 ### POST /verifications — `$client->verifications()->create($data)`
-Request: `{ fingerprint?: string(64), callback_url?: url(<=2048), external_id?: string(<=255), external_metadata?: object, metadata?: object, page_url?: string(<=8192) }`
+Request: `{ callback_url?: url(<=2048), external_id?: string(<=255), external_metadata?: object, metadata?: object }`
 Response: `201 { id: string, external_id: string|null, external_metadata: object|null, redirect_url: string|null, status: string, reason: string|null, duplicate_check: { checked: bool, duplicate_count: int, duplicates: [ { verification_id: string|null, external_id: string|null, similarity_score: float|null, verified_at: string|null } ] }, erasure: { erased_at: string, scope: string, reason: string|null, requested_via: string|null }|null, consent_accepted_at: string|null, created_at: string, updated_at: string, url: string }`
-`callback_url` is where the person's browser goes when they finish (returned as `redirect_url`, falling back to the workspace's redirect URL); it is **not** a webhook target. `page_url` is the page the flow was started on; only scheme, host and path are kept. `url` is the link the person opens. `duplicate_count` counts every face match; `duplicates` may be shorter. `erasure` is null until the personal data is erased.
+`callback_url` is where the person's browser goes when they finish (returned as `redirect_url`, falling back to the workspace's redirect URL); it is **not** a webhook target. `url` is the link the person opens. `duplicate_count` counts every face match; `duplicates` may be shorter. `erasure` is null until the personal data is erased.
 Errors: `402` `{ code: "PAYMENT_METHOD_REQUIRED", message, free_verifications_remaining, trial_ends_at, trial_active }` (flat, not nested under `error`).
 
 ### GET /verifications/{verification} — `$client->verifications($id)->find($id)` / `->get()`
@@ -55,11 +55,11 @@ Request: none.
 Response: same as create **without** `url`.
 
 ### POST /verifications/{verification}/consent — `$client->verifications($id)->acceptConsent($data)`
-Request: `{ consent_version_id: int, text_sha256: string(64 hex), device?: { platform?: string, screen?: string, language?: string, timezone?: string, hardware_concurrency?: number, device_memory?: number }, in_app_browser?: string(<=64), camera_permission?: "granted"|"denied"|"prompt"|"unsupported", camera_policy_allowed?: bool, in_iframe?: bool, referrer?: string(<=512) }` — everything after `text_sha256` is optional browser context a capture widget reports; a server-side integration leaves it out.
+Request: `{ consent_version_id: int, text_sha256: string(64 hex) }`: the `id` and `text_sha256` from `getConsent()`.
 Response: `{ consent_version_id: int, consent_accepted_at: string }`
 
 ### POST /verifications/{verification}/media — `$client->verifications($id)->uploadMedia($data)` (multipart)
-Request: `{ file: path|\SplFileInfo|FilePart, type: "selfie"|"liveness_selfie"|"document", side?: "front"|"back" (req. if type=document), document?: "id"|"driver_license"|"passport"|"residence_permit" (req. if type=document), fingerprint?: string(64), head_turn_step?: int(0..10), capture_resolution?: json-string, device_info?: json-string, liveness_telemetry?: json-string }`
+Request: `{ file: path|\SplFileInfo|FilePart, type: "selfie"|"document", side?: "front"|"back" (req. if type=document), document?: "id"|"driver_license"|"passport"|"residence_permit" (req. if type=document) }`
 Response: `200` with an **empty body**; the method returns `null`. Requires consent accepted first. A `file` path that does not exist throws `\InvalidArgumentException` before anything is sent. A null field is not sent and a boolean is sent as `1`/`0`, so the multipart signature holds.
 Errors: `422 { code, message }` (flat) when the image fails a quality check — `FACE_NOT_FOUND` and the other quality codes, `MAX_ATTEMPTS_REACHED`; `500 { code: "VALIDATION_SERVICE_UNAVAILABLE", message }`; `422 { message, errors }` for invalid fields.
 
