@@ -375,6 +375,66 @@ class VerificationResourceTest extends TestCase
         });
     }
 
+    public function test_document_returns_the_kyc_object_with_an_unknown_type(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/v1/verifications/ver_123/document' => FakeHttpClient::json([
+                'document' => [
+                    'type' => 'health_card',
+                    'issuing_country' => 'DE',
+                    'fields' => [
+                        'first_name' => 'JANE',
+                        'middle_name' => null,
+                        'last_name' => 'DOE',
+                        'date_of_birth' => '1990-04-12',
+                        'gender' => 'F',
+                        'nationality' => 'DE',
+                        'place_of_birth' => 'BERLIN',
+                        'document_number' => 'X1234567',
+                        'issue_date' => '2020-04-14',
+                        'expiry_date' => '2030-04-30',
+                    ],
+                ],
+                'media' => [],
+                'meta' => ['attempt_id' => 'attempt_123'],
+            ]),
+        ]);
+
+        $result = $client->verifications('ver_123')->document();
+
+        $this->assertSame('health_card', $result['document']['type']);
+        $this->assertSame('DE', $result['document']['issuing_country']);
+        $this->assertCount(10, $result['document']['fields']);
+        $this->assertSame('2030-04-30', $result['document']['fields']['expiry_date']);
+    }
+
+    public function test_document_returns_the_reduced_object_on_an_age_workspace(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/v1/verifications/ver_123/document' => FakeHttpClient::json([
+                'document' => [
+                    'type' => 'id',
+                    'issuing_country' => 'FR',
+                    'fields' => [
+                        'first_name' => 'JEAN',
+                        'last_name' => 'MARTIN',
+                        'date_of_birth' => null,
+                        'document_number' => 'X4RTBPFW4',
+                    ],
+                ],
+                'media' => [],
+                'meta' => ['attempt_id' => null],
+            ]),
+        ]);
+
+        $result = $client->verifications('ver_123')->document();
+
+        $this->assertSame('id', $result['document']['type']);
+        $this->assertNull($result['document']['fields']['date_of_birth']);
+        $this->assertArrayNotHasKey('gender', $result['document']['fields']);
+        $this->assertArrayNotHasKey('expiry_date', $result['document']['fields']);
+    }
+
     public function test_download_media_streams_bytes_from_the_media_endpoint(): void
     {
         $client = $this->makeFakedClient([

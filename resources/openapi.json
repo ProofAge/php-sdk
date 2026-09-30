@@ -830,7 +830,7 @@
     "/verifications/{verification}/document": {
       "get": {
         "operationId": "getVerificationDocument",
-        "description": "Retrieves sanitized document fields and the source media from the most relevant attempt.\nEach media item carries a `url` for the download endpoint, or null when the\nmedia has been purged or has passed its retention window.",
+        "description": "Returns what was read from the identity document of the most relevant attempt,\nnormalised: dates as YYYY-MM-DD, countries as ISO 3166-1 alpha-2 (XK for Kosovo), and null for\nanything the document did not yield or does not print. On identity (KYC)\nworkspaces `fields` carries ten keys; on age verification workspaces only\n`first_name`, `last_name`, `date_of_birth` and `document_number` are returned.\nEach media item carries a `url` for the download endpoint, or null when the\nmedia has been purged or has passed its retention window.",
         "summary": "Get verification document result",
         "tags": [
           "Verification"
@@ -849,7 +849,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Verification document result.",
+            "description": "Verification document result. `type` and `gender` are open enums: handle values not listed here. `gender` is F, M or X; X is declared for documents that state an unspecified sex and is not yet produced. `other` in `type` is likewise declared and not yet produced. Countries are ISO 3166-1 alpha-2 (XK for Kosovo). A document that prints only the month or year of expiry reports the last day of that period; a partially printed birth or issue date is null. On a Mexican voter card or driving licence created before 20 August 2026 17:00 UTC, `gender` is null. The German identity card prints no sex, so `gender` is null there. A permanent document (for example `PERMANENTE` or `INDEFINIDA`) reads as a null `expiry_date`. `type` `id` is the same value the upload endpoint takes. `issuing_country` and `nationality` can differ, for example on a residence permit. `place_of_birth` is the printed text, not normalised.",
             "content": {
               "application/json": {
                 "schema": {
@@ -857,11 +857,19 @@
                   "examples": [
                     {
                       "document": {
+                        "type": "passport",
+                        "issuing_country": "DE",
                         "fields": {
-                          "first_name": "John",
-                          "last_name": "Doe",
-                          "date_of_birth": "1990-01-15",
-                          "document_number": "AB123456"
+                          "first_name": "JANE",
+                          "middle_name": null,
+                          "last_name": "DOE",
+                          "date_of_birth": "1990-04-12",
+                          "gender": "F",
+                          "nationality": "DE",
+                          "place_of_birth": "BERLIN",
+                          "document_number": "C01X00T47",
+                          "issue_date": "2020-04-14",
+                          "expiry_date": "2030-04-13"
                         }
                       },
                       "media": [
@@ -879,16 +887,64 @@
                       "meta": {
                         "attempt_id": "019de7a2-0305-7269-9cff-1715c71b19ae"
                       }
+                    },
+                    {
+                      "document": {
+                        "type": "id",
+                        "issuing_country": "FR",
+                        "fields": {
+                          "first_name": "JEAN",
+                          "last_name": "MARTIN",
+                          "date_of_birth": "1988-11-02",
+                          "document_number": "X4RTBPFW4"
+                        }
+                      },
+                      "media": [
+                        {
+                          "id": "019de7a0-c129-7259-8a08-bc10390ecbdb",
+                          "type": "document_front",
+                          "url": "https://api.proofage.xyz/v1/verifications/019de7a0-c11b-7373-9289-b0aa1ba08d13/media/019de7a0-c129-7259-8a08-bc10390ecbdb"
+                        }
+                      ],
+                      "meta": {
+                        "attempt_id": "019de7a2-0305-7269-9cff-1715c71b19ae"
+                      }
                     }
                   ],
                   "properties": {
                     "document": {
                       "type": "object",
                       "properties": {
+                        "type": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "passport",
+                            "id",
+                            "driver_license",
+                            "residence_permit",
+                            "other",
+                            null
+                          ]
+                        },
+                        "issuing_country": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "fields": {
                           "type": "object",
                           "properties": {
                             "first_name": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "middle_name": {
                               "type": [
                                 "string",
                                 "null"
@@ -904,6 +960,31 @@
                               "type": [
                                 "string",
                                 "null"
+                              ],
+                              "format": "date"
+                            },
+                            "gender": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "enum": [
+                                "F",
+                                "M",
+                                "X",
+                                null
+                              ]
+                            },
+                            "nationality": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "place_of_birth": {
+                              "type": [
+                                "string",
+                                "null"
                               ]
                             },
                             "document_number": {
@@ -911,6 +992,20 @@
                                 "string",
                                 "null"
                               ]
+                            },
+                            "issue_date": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "format": "date"
+                            },
+                            "expiry_date": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "format": "date"
                             }
                           },
                           "required": [
@@ -922,6 +1017,8 @@
                         }
                       },
                       "required": [
+                        "type",
+                        "issuing_country",
                         "fields"
                       ]
                     },
@@ -1325,43 +1422,107 @@
           "document": {
             "type": "object",
             "properties": {
+              "type": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "issuing_country": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "fields": {
-                "type": "object",
-                "properties": {
-                  "first_name": {
-                    "type": [
-                      "string",
-                      "null"
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "first_name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "middle_name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "last_name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "date_of_birth": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "gender": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "nationality": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "place_of_birth": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "document_number": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "issue_date": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "expiry_date": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "first_name",
+                      "middle_name",
+                      "last_name",
+                      "date_of_birth",
+                      "gender",
+                      "nationality",
+                      "place_of_birth",
+                      "document_number",
+                      "issue_date",
+                      "expiry_date"
                     ]
                   },
-                  "last_name": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
-                  },
-                  "date_of_birth": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
-                  },
-                  "document_number": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
+                  {
+                    "type": "array",
+                    "items": {}
                   }
-                },
-                "required": [
-                  "first_name",
-                  "last_name",
-                  "date_of_birth",
-                  "document_number"
                 ]
               }
             },
             "required": [
+              "type",
+              "issuing_country",
               "fields"
             ]
           },

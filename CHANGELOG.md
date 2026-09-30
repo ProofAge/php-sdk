@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `verifications($id)->document()` documents the new response keys: `document.type` and
+  `document.issuing_country` on every workspace, and on identity (KYC) workspaces six more
+  `fields` (`middle_name`, `gender`, `nationality`, `place_of_birth`, `issue_date`,
+  `expiry_date`). Age workspaces receive only the four base fields, so the six keys are optional
+  in the array shape. `type` and `gender` are open sets; handle values you do not know.
+- `resources/openapi.json` synced from the docs.
+
 ## 0.3.2 - 2026-09-29
 
 ### Deprecated
