@@ -8,6 +8,10 @@
   printed text as read, trimmed, `null` when empty, not parsed, possibly with line breaks. Age
   workspaces omit it, so it is optional in the array shape. `gender` `X` means the document
   states that the sex is unspecified.
+- The decision webhook body carries `document`, the same object `document()` returns without media,
+  on every status. `AGENTS.md` documents it; the SDK has no webhook DTO, so there is no code change.
+  A resend or a manual retry carries the document as it is now, and after erasure only `type` and
+  `issuing_country` remain.
 - `resources/openapi.json` synced from the docs.
 
 ## 0.4.0 - 2026-09-30

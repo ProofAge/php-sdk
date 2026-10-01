@@ -141,6 +141,7 @@ Body:
   "external_metadata": object|null,
   "reason": string|null,                       // only on resubmission_requested / declined
   "timestamp": string (ISO8601),
+  "document": { "type": string|null, "issuing_country": string|null, "fields": {...} },   // the array shape of document() without media; absent on a body sent before this existed
   "duplicate_detected"?: true,                 // present only when a duplicate was found
   "duplicate_count"?: int,                     // with duplicate_detected: every match found
   "duplicate_of"?: { "verification_id": string, "external_id": string|null },   // the first match
@@ -149,6 +150,16 @@ Body:
                           "performed_by": string, "source_status"?: string|null, "source_reason"?: string|null }
 }
 ```
+
+`document` is on every decision webhook, whatever the status: the same object `document()` returns
+(`type`, `issuing_country`, `fields`; see its array shape in `src/Resources/VerificationResource.php`),
+without `media` and `meta`. KYC workspaces receive eleven `fields`; age workspaces receive
+`first_name`, `last_name`, `date_of_birth` and `document_number` only, the other seven keys being
+absent. `null` means not read, not printed, or no document read at all (an age estimate without an
+ID, a test workspace, a wallet check). A resend and a manual retry carry the document as it is now,
+an automatic retry the body as first sent; after erasure only `type` and `issuing_country` remain.
+The SDK has no webhook DTO: decode the body yourself after `WebhookVerifier` has verified the raw
+bytes, treat `document` as optional (a body sent before it existed lacks it), and do not log the body.
 
 ## Keeping this in sync
 

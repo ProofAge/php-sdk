@@ -1834,7 +1834,8 @@
                   "external_id",
                   "external_metadata",
                   "reason",
-                  "timestamp"
+                  "timestamp",
+                  "document"
                 ],
                 "properties": {
                   "verification_id": {
@@ -1880,6 +1881,126 @@
                     "type": "string",
                     "format": "date-time",
                     "description": "When the status changed, ISO 8601."
+                  },
+                  "document": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "enum": [
+                          "passport",
+                          "id",
+                          "driver_license",
+                          "residence_permit",
+                          "other",
+                          null
+                        ]
+                      },
+                      "issuing_country": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "fields": {
+                        "type": "object",
+                        "properties": {
+                          "first_name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "middle_name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "last_name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "date_of_birth": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date"
+                          },
+                          "gender": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "F",
+                              "M",
+                              "X",
+                              null
+                            ],
+                            "description": "`X` means the document states that the sex is unspecified."
+                          },
+                          "nationality": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Published only when the document itself states it."
+                          },
+                          "place_of_birth": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "address": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "KYC workspaces only. The printed text as read: not parsed, may contain line breaks."
+                          },
+                          "document_number": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "issue_date": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date"
+                          },
+                          "expiry_date": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date"
+                          }
+                        },
+                        "required": [
+                          "first_name",
+                          "last_name",
+                          "date_of_birth",
+                          "document_number"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "issuing_country",
+                      "fields"
+                    ],
+                    "description": "The same object `GET /v1/verifications/{id}/document` returns, without `media` and `meta`, read from the attempt that decided the verification. Identity (KYC) workspaces receive eleven `fields`; age verification workspaces receive `first_name`, `last_name`, `date_of_birth` and `document_number` only, and the other seven keys are absent. `null` means the field was not read, is not printed on that document, or no document was read at all (a facial age estimation that passed without an ID, a test workspace, a wallet check); `document` itself is never null. Dates are `YYYY-MM-DD` and countries ISO 3166-1 alpha-2 (`XK` for Kosovo); `type` and `gender` are open enums. A resend or a manual retry carries the document as it is now; an automatic retry carries the body as first sent. After the person's data is erased, only `type` and `issuing_country` are kept."
                   },
                   "duplicate_detected": {
                     "type": "boolean",
@@ -1979,7 +2100,24 @@
                   "plan": "premium"
                 },
                 "reason": "document.face.mismatch",
-                "timestamp": "2026-09-29T12:05:00+00:00"
+                "timestamp": "2026-09-29T12:05:00+00:00",
+                "document": {
+                  "type": "passport",
+                  "issuing_country": "DE",
+                  "fields": {
+                    "first_name": "JANE",
+                    "middle_name": null,
+                    "last_name": "DOE",
+                    "date_of_birth": "1990-04-12",
+                    "gender": "F",
+                    "nationality": "DE",
+                    "place_of_birth": "BERLIN",
+                    "address": null,
+                    "document_number": "C01X00T47",
+                    "issue_date": "2020-04-14",
+                    "expiry_date": "2030-04-13"
+                  }
+                }
               }
             }
           }
