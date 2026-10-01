@@ -255,9 +255,10 @@ class VerificationResource
      *
      * `type` (passport, id, driver_license, residence_permit, other: an open set, so handle
      * other values) and `issuing_country` (ISO alpha-2, XK for Kosovo) are on every workspace.
-     * Identity (KYC) workspaces get ten `fields`; age workspaces get only first_name, last_name,
-     * date_of_birth and document_number, the other six keys being absent. `gender` is F, M or X
-     * (X declared, not yet produced). Dates are YYYY-MM-DD.
+     * Identity (KYC) workspaces get eleven `fields`; age workspaces get only first_name, last_name,
+     * date_of_birth and document_number, the other seven keys being absent. `gender` is F, M or X
+     * (X: the document states the sex is unspecified). `address` is the printed text as read,
+     * not parsed, possibly with line breaks. Dates are YYYY-MM-DD.
      *
      * Media are ordered selfie, document_front, document_back; each is `{id, type, url}`.
      * Fetch the bytes with
@@ -265,7 +266,7 @@ class VerificationResource
      * null when the media has been purged or has passed its retention window.
      *
      * @return array{
-     *     document: array{type?: string|null, issuing_country?: string|null, fields: array{first_name: string|null, middle_name?: string|null, last_name: string|null, date_of_birth: string|null, gender?: string|null, nationality?: string|null, place_of_birth?: string|null, document_number: string|null, issue_date?: string|null, expiry_date?: string|null}},
+     *     document: array{type?: string|null, issuing_country?: string|null, fields: array{first_name: string|null, middle_name?: string|null, last_name: string|null, date_of_birth: string|null, gender?: string|null, nationality?: string|null, place_of_birth?: string|null, address?: string|null, document_number: string|null, issue_date?: string|null, expiry_date?: string|null}},
      *     media: list<array{id: string, type: 'selfie'|'document_front'|'document_back', url: string|null}>,
      *     meta: array{attempt_id: string|null}
      * }|null

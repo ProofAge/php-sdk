@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `verifications($id)->document()` documents `fields.address` on identity (KYC) workspaces: the
+  printed text as read, trimmed, `null` when empty, not parsed, possibly with line breaks. Age
+  workspaces omit it, so it is optional in the array shape. `gender` `X` means the document
+  states that the sex is unspecified.
+- `resources/openapi.json` synced from the docs.
+
 ## 0.4.0 - 2026-09-30
 
 ### Added

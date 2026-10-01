@@ -390,6 +390,7 @@ class VerificationResourceTest extends TestCase
                         'gender' => 'F',
                         'nationality' => 'DE',
                         'place_of_birth' => 'BERLIN',
+                        'address' => "Rua das Flores 12\n1000-001 LISBOA",
                         'document_number' => 'X1234567',
                         'issue_date' => '2020-04-14',
                         'expiry_date' => '2030-04-30',
@@ -404,7 +405,8 @@ class VerificationResourceTest extends TestCase
 
         $this->assertSame('health_card', $result['document']['type']);
         $this->assertSame('DE', $result['document']['issuing_country']);
-        $this->assertCount(10, $result['document']['fields']);
+        $this->assertCount(11, $result['document']['fields']);
+        $this->assertSame("Rua das Flores 12\n1000-001 LISBOA", $result['document']['fields']['address']);
         $this->assertSame('2030-04-30', $result['document']['fields']['expiry_date']);
     }
 
@@ -432,6 +434,7 @@ class VerificationResourceTest extends TestCase
         $this->assertSame('id', $result['document']['type']);
         $this->assertNull($result['document']['fields']['date_of_birth']);
         $this->assertArrayNotHasKey('gender', $result['document']['fields']);
+        $this->assertArrayNotHasKey('address', $result['document']['fields']);
         $this->assertArrayNotHasKey('expiry_date', $result['document']['fields']);
     }
 

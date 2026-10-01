@@ -830,7 +830,7 @@
     "/verifications/{verification}/document": {
       "get": {
         "operationId": "getVerificationDocument",
-        "description": "Returns what was read from the identity document of the most relevant attempt,\nnormalised: dates as YYYY-MM-DD, countries as ISO 3166-1 alpha-2 (XK for Kosovo), and null for\nanything the document did not yield or does not print. On identity (KYC)\nworkspaces `fields` carries ten keys; on age verification workspaces only\n`first_name`, `last_name`, `date_of_birth` and `document_number` are returned.\nEach media item carries a `url` for the download endpoint, or null when the\nmedia has been purged or has passed its retention window.",
+        "description": "Returns what was read from the identity document of the most relevant attempt,\nnormalised: dates as YYYY-MM-DD, countries as ISO 3166-1 alpha-2 (XK for Kosovo), and null for\nanything the document did not yield or does not print. On identity (KYC)\nworkspaces `fields` carries eleven keys; on age verification workspaces only\n`first_name`, `last_name`, `date_of_birth` and `document_number` are returned.\nEach media item carries a `url` for the download endpoint, or null when the\nmedia has been purged or has passed its retention window.",
         "summary": "Get verification document result",
         "tags": [
           "Verification"
@@ -849,7 +849,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Verification document result. `type` and `gender` are open enums: handle values not listed here. `gender` is F, M or X; X is declared for documents that state an unspecified sex and is not yet produced. `other` in `type` is likewise declared and not yet produced. Countries are ISO 3166-1 alpha-2 (XK for Kosovo). A document that prints only the month or year of expiry reports the last day of that period; a partially printed birth or issue date is null. On a Mexican voter card or driving licence created before 20 August 2026 17:00 UTC, `gender` is null. The German identity card prints no sex, so `gender` is null there. A permanent document (for example `PERMANENTE` or `INDEFINIDA`) reads as a null `expiry_date`. `type` `id` is the same value the upload endpoint takes. `issuing_country` and `nationality` can differ, for example on a residence permit. `place_of_birth` is the printed text, not normalised.",
+            "description": "Verification document result. `type` and `gender` are open enums: handle values not listed here. `gender` is F, M or X, where X means the document states that the sex is unspecified. `other` in `type` is likewise declared and not yet produced. Countries are ISO 3166-1 alpha-2 (XK for Kosovo). A document that prints only the month or year of expiry reports the last day of that period; a partially printed birth or issue date is null. On a Mexican voter card or driving licence created before 20 August 2026 17:00 UTC, `gender` is null. The German identity card prints no sex, so `gender` is null there. A permanent document (for example `PERMANENTE` or `INDEFINIDA`) reads as a null `expiry_date`. `type` `id` is the same value the upload endpoint takes. `issuing_country` and `nationality` can differ, for example on a residence permit. `place_of_birth` is the printed text, not normalised. `address` is the printed text as read, not parsed and not normalised, and may contain line breaks.",
             "content": {
               "application/json": {
                 "schema": {
@@ -867,6 +867,7 @@
                           "gender": "F",
                           "nationality": "DE",
                           "place_of_birth": "BERLIN",
+                          "address": null,
                           "document_number": "C01X00T47",
                           "issue_date": "2020-04-14",
                           "expiry_date": "2030-04-13"
@@ -982,6 +983,12 @@
                               ]
                             },
                             "place_of_birth": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "address": {
                               "type": [
                                 "string",
                                 "null"
@@ -1481,6 +1488,12 @@
                           "null"
                         ]
                       },
+                      "address": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
                       "document_number": {
                         "type": [
                           "string",
@@ -1508,6 +1521,7 @@
                       "gender",
                       "nationality",
                       "place_of_birth",
+                      "address",
                       "document_number",
                       "issue_date",
                       "expiry_date"
