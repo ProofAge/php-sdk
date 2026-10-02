@@ -849,7 +849,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Verification document result. `type` and `gender` are open enums: handle values not listed here. `gender` is F, M or X, where X means the document states that the sex is unspecified. `other` in `type` is likewise declared and not yet produced. Countries are ISO 3166-1 alpha-2 (XK for Kosovo). A document that prints only the month or year of expiry reports the last day of that period; a partially printed birth or issue date is null. On a Mexican voter card or driving licence created before 20 August 2026 17:00 UTC, `gender` is null. The German identity card prints no sex, so `gender` is null there. A permanent document (for example `PERMANENTE` or `INDEFINIDA`) reads as a null `expiry_date`. `type` `id` is the same value the upload endpoint takes. `issuing_country` and `nationality` can differ, for example on a residence permit. `place_of_birth` is the printed text, not normalised. `address` is the printed text as read, not parsed and not normalised, and may contain line breaks.",
+            "description": "Verification document result. `type` and `gender` are open enums: handle values not listed here. `gender` is F, M or X, where X means the document states that the sex is unspecified. `other` in `type` is likewise declared and not yet produced. Countries are ISO 3166-1 alpha-2 (XK for Kosovo). A document that prints only the month or year of expiry reports the last day of that period; a partially printed birth or issue date is null. On a Mexican voter card or driving licence created before 20 August 2026 17:00 UTC, `gender` is null. The German identity card prints no sex, so `gender` is null there. A permanent document (for example `PERMANENTE` or `INDEFINIDA`) reads as a null `expiry_date`. `type` `id` is the same value the upload endpoint takes. `issuing_country` and `nationality` can differ, for example on a residence permit. `issuing_subdivision` is the state or province that issued the document, as a bare code beside `issuing_country` (for example `FL` with `US`), or null; today it is filled for US driving licences and ID cards. `place_of_birth` is the printed text, not normalised. `address` is the printed text as read, not parsed and not normalised, and may contain line breaks.",
             "content": {
               "application/json": {
                 "schema": {
@@ -859,6 +859,7 @@
                       "document": {
                         "type": "passport",
                         "issuing_country": "DE",
+                        "issuing_subdivision": null,
                         "fields": {
                           "first_name": "JANE",
                           "middle_name": null,
@@ -893,6 +894,7 @@
                       "document": {
                         "type": "id",
                         "issuing_country": "FR",
+                        "issuing_subdivision": null,
                         "fields": {
                           "first_name": "JEAN",
                           "last_name": "MARTIN",
@@ -931,6 +933,12 @@
                           ]
                         },
                         "issuing_country": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "issuing_subdivision": {
                           "type": [
                             "string",
                             "null"
@@ -1026,6 +1034,7 @@
                       "required": [
                         "type",
                         "issuing_country",
+                        "issuing_subdivision",
                         "fields"
                       ]
                     },
@@ -1441,6 +1450,12 @@
                   "null"
                 ]
               },
+              "issuing_subdivision": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "fields": {
                 "anyOf": [
                   {
@@ -1537,6 +1552,7 @@
             "required": [
               "type",
               "issuing_country",
+              "issuing_subdivision",
               "fields"
             ]
           },
@@ -1905,6 +1921,13 @@
                           "null"
                         ]
                       },
+                      "issuing_subdivision": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "description": "The state or province that issued the document, as a bare code beside `issuing_country` (for example `FL` with `US`), or null. Today it is filled for US driving licences and ID cards. Present on every workspace and kept after erasure."
+                      },
                       "fields": {
                         "type": "object",
                         "properties": {
@@ -1998,6 +2021,7 @@
                     "required": [
                       "type",
                       "issuing_country",
+                      "issuing_subdivision",
                       "fields"
                     ],
                     "description": "The same object `GET /v1/verifications/{id}/document` returns, without `media` and `meta`, read from the attempt that decided the verification. Identity (KYC) workspaces receive eleven `fields`; age verification workspaces receive `first_name`, `last_name`, `date_of_birth` and `document_number` only, and the other seven keys are absent. `null` means the field was not read, is not printed on that document, or no document was read at all (a facial age estimation that passed without an ID, a test workspace, a wallet check); `document` itself is never null. Dates are `YYYY-MM-DD` and countries ISO 3166-1 alpha-2 (`XK` for Kosovo); `type` and `gender` are open enums. A resend or a manual retry carries the document as it is now; an automatic retry carries the body as first sent. After the person's data is erased, only `type` and `issuing_country` are kept."
@@ -2104,6 +2128,7 @@
                 "document": {
                   "type": "passport",
                   "issuing_country": "DE",
+                  "issuing_subdivision": null,
                   "fields": {
                     "first_name": "JANE",
                     "middle_name": null,

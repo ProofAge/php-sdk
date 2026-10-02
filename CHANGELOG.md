@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `verifications($id)->document()` documents `document.issuing_subdivision`: the state or province
+  of issuance as a bare code (`FL` with `US`), or `null`, filled today for US driving licences and
+  ID cards. It is optional in the array shape and also arrives in the webhook `document`.
+
 ## 0.5.0 - 2026-10-01
 
 ### Added

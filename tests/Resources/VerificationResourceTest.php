@@ -382,6 +382,7 @@ class VerificationResourceTest extends TestCase
                 'document' => [
                     'type' => 'health_card',
                     'issuing_country' => 'DE',
+                    'issuing_subdivision' => null,
                     'fields' => [
                         'first_name' => 'JANE',
                         'middle_name' => null,
@@ -405,6 +406,7 @@ class VerificationResourceTest extends TestCase
 
         $this->assertSame('health_card', $result['document']['type']);
         $this->assertSame('DE', $result['document']['issuing_country']);
+        $this->assertNull($result['document']['issuing_subdivision']);
         $this->assertCount(11, $result['document']['fields']);
         $this->assertSame("Rua das Flores 12\n1000-001 LISBOA", $result['document']['fields']['address']);
         $this->assertSame('2030-04-30', $result['document']['fields']['expiry_date']);
@@ -415,8 +417,9 @@ class VerificationResourceTest extends TestCase
         $client = $this->makeFakedClient([
             'api.test.com/v1/verifications/ver_123/document' => FakeHttpClient::json([
                 'document' => [
-                    'type' => 'id',
-                    'issuing_country' => 'FR',
+                    'type' => 'driver_license',
+                    'issuing_country' => 'US',
+                    'issuing_subdivision' => 'CA',
                     'fields' => [
                         'first_name' => 'JEAN',
                         'last_name' => 'MARTIN',
@@ -431,7 +434,8 @@ class VerificationResourceTest extends TestCase
 
         $result = $client->verifications('ver_123')->document();
 
-        $this->assertSame('id', $result['document']['type']);
+        $this->assertSame('driver_license', $result['document']['type']);
+        $this->assertSame('CA', $result['document']['issuing_subdivision']);
         $this->assertNull($result['document']['fields']['date_of_birth']);
         $this->assertArrayNotHasKey('gender', $result['document']['fields']);
         $this->assertArrayNotHasKey('address', $result['document']['fields']);
