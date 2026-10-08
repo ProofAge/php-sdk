@@ -69,6 +69,50 @@ class ApiContractTest extends TestCase
         }
     }
 
+    public function test_query_parameters_match_the_spec(): void
+    {
+        $checked = [];
+
+        foreach (ApiContractMap::operations() as $name => $op) {
+            $parameters = $this->spec['paths'][$op['path']][strtolower($op['method'])]['parameters'] ?? [];
+            $specQuery = array_values(array_map(
+                static fn (array $parameter): string => (string) $parameter['name'],
+                array_filter($parameters, static fn (array $parameter): bool => ($parameter['in'] ?? null) === 'query'),
+            ));
+            sort($specQuery);
+            $mapQuery = $op['query'] ?? [];
+            sort($mapQuery);
+
+            $this->assertSame($mapQuery, $specQuery, "Query parameters for [{$name}] drifted from the spec.");
+
+            if ($mapQuery !== []) {
+                $checked[] = $name;
+            }
+        }
+
+        $this->assertSame(['verifications.list'], $checked);
+    }
+
+    public function test_list_item_fields_match_the_spec(): void
+    {
+        $checked = [];
+
+        foreach (ApiContractMap::operations() as $name => $op) {
+            foreach ($op['responseItems'] ?? [] as $field => $itemFields) {
+                $schema = $this->successSchema($op['path'], $op['method'], $op['responseStatus'] ?? null);
+                $specFields = $this->schemaProperties($schema['properties'][$field]['items'] ?? []);
+                sort($specFields);
+                sort($itemFields);
+
+                $this->assertSame($itemFields, $specFields, "Item fields of [{$name}] `{$field}` drifted from the spec.");
+                $checked[] = $name.'.'.$field;
+            }
+        }
+
+        sort($checked);
+        $this->assertSame(['verifications.list.data', 'webhookSubscriptions.list.data'], $checked);
+    }
+
     public function test_the_upload_request_is_multipart(): void
     {
         $content = $this->spec['paths']['/verifications/{verification}/media']['post']['requestBody']['content'] ?? [];
@@ -103,7 +147,7 @@ class ApiContractTest extends TestCase
 
         sort($checked);
         $this->assertSame(
-            ['verifications.acceptConsent', 'verifications.create', 'verifications.document', 'verifications.estimation', 'verifications.find', 'workspace.get', 'workspace.getConsent'],
+            ['verifications.acceptConsent', 'verifications.create', 'verifications.document', 'verifications.estimation', 'verifications.find', 'verifications.list', 'verifications.setTestOutcome', 'webhookSubscriptions.create', 'webhookSubscriptions.list', 'workspace.get', 'workspace.getConsent'],
             $checked,
             'The set of spec-describable response endpoints changed. If the generator improved, extend response parity coverage.'
         );
@@ -125,12 +169,18 @@ class ApiContractTest extends TestCase
             $this->assertNotSame([], $successes, "The spec describes no success response for [{$name}].");
 
             foreach ($successes as $code => $response) {
+                if ((string) $code === '204') {
+                    // A 204 has no body by definition (RFC 9110 15.3.5). The generator still gives
+                    // a described 204 a `string` JSON schema, which is not a body to decode.
+                    continue;
+                }
+
                 $this->assertArrayNotHasKey('application/json', $response['content'] ?? [], "The spec gives [{$name}] a JSON {$code} body; the SDK method returns null. Update the method, its @return and the map.");
             }
         }
 
         sort($bodiless);
-        $this->assertSame(['verifications.blockFace', 'verifications.submit', 'verifications.uploadMedia'], $bodiless);
+        $this->assertSame(['verifications.blockFace', 'verifications.submit', 'verifications.uploadMedia', 'webhookSubscriptions.delete'], $bodiless);
     }
 
     public function test_agents_doc_covers_every_endpoint(): void
@@ -185,6 +235,32 @@ class ApiContractTest extends TestCase
         $content = $this->spec['paths'][$path][strtolower($method)]['requestBody']['content'] ?? [];
 
         return $content['application/json']['schema'] ?? $content['multipart/form-data']['schema'] ?? [];
+    }
+
+    /**
+     * The first 2xx JSON body schema (resolved) that describes properties, or [].
+     *
+     * @return array<string, mixed>
+     */
+    private function successSchema(string $path, string $method, ?string $status = null): array
+    {
+        foreach ($this->spec['paths'][$path][strtolower($method)]['responses'] ?? [] as $code => $response) {
+            if (! str_starts_with((string) $code, '2') || ($status !== null && (string) $code !== $status)) {
+                continue;
+            }
+
+            $schema = $response['content']['application/json']['schema'] ?? null;
+
+            if (isset($schema['$ref'])) {
+                $schema = $this->spec['components']['schemas'][substr((string) $schema['$ref'], strlen('#/components/schemas/'))] ?? null;
+            }
+
+            if (is_array($schema) && isset($schema['properties'])) {
+                return $schema;
+            }
+        }
+
+        return [];
     }
 
     /**
