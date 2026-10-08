@@ -38,7 +38,7 @@ class Client
      * This package's version, reported in X-ProofAge-Sdk and User-Agent. Equal to the newest
      * released heading in CHANGELOG.md (tests/VersionTest.php); bumped in the release commit.
      */
-    public const VERSION = '0.7.0';
+    public const VERSION = '0.8.0';
 
     /**
      * Sent on every request: `name/version` tokens separated by single spaces, outermost
