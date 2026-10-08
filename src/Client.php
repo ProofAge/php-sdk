@@ -20,6 +20,7 @@ use ProofAge\Sdk\Middleware\Pipeline;
 use ProofAge\Sdk\Middleware\RetryMiddleware;
 use ProofAge\Sdk\Middleware\SignMiddleware;
 use ProofAge\Sdk\Resources\VerificationResource;
+use ProofAge\Sdk\Resources\WebhookSubscriptionResource;
 use ProofAge\Sdk\Resources\WorkspaceResource;
 use ProofAge\Sdk\Signing\Signer;
 use ProofAge\Sdk\Stream\ResourceStream;
@@ -114,6 +115,11 @@ class Client
     public function verifications(?string $id = null): VerificationResource
     {
         return new VerificationResource($this, $id);
+    }
+
+    public function webhookSubscriptions(): WebhookSubscriptionResource
+    {
+        return new WebhookSubscriptionResource($this);
     }
 
     /**

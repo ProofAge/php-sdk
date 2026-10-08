@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ProofAge\Sdk\Client;
 use ProofAge\Sdk\Resources\VerificationResource;
+use ProofAge\Sdk\Resources\WebhookSubscriptionResource;
 use ProofAge\Sdk\Resources\WorkspaceResource;
 
 /**
@@ -41,8 +42,14 @@ class ResourceSurfaceTest extends TestCase
         yield 'VerificationResource::blockFace' => [VerificationResource::class, 'blockFace', 'blockFace(?array $data = null): ?array'];
         yield 'VerificationResource::setTestOutcome' => [VerificationResource::class, 'setTestOutcome', 'setTestOutcome(array $data): ?array'];
 
+        yield 'WebhookSubscriptionResource::__construct' => [WebhookSubscriptionResource::class, '__construct', "__construct({$client} \$client)"];
+        yield 'WebhookSubscriptionResource::create' => [WebhookSubscriptionResource::class, 'create', 'create(array $data): ?array'];
+        yield 'WebhookSubscriptionResource::list' => [WebhookSubscriptionResource::class, 'list', 'list(): ?array'];
+        yield 'WebhookSubscriptionResource::delete' => [WebhookSubscriptionResource::class, 'delete', 'delete(string $id): void'];
+
         yield 'Client::workspace' => [Client::class, 'workspace', 'workspace(): ProofAge\Sdk\Resources\WorkspaceResource'];
         yield 'Client::verifications' => [Client::class, 'verifications', 'verifications(?string $id = null): ProofAge\Sdk\Resources\VerificationResource'];
+        yield 'Client::webhookSubscriptions' => [Client::class, 'webhookSubscriptions', 'webhookSubscriptions(): ProofAge\Sdk\Resources\WebhookSubscriptionResource'];
         yield 'Client::makeRequest' => [Client::class, 'makeRequest', 'makeRequest(string $method, string $endpoint, array $data = [], array $files = []): ProofAge\Sdk\Http\Response'];
         yield 'Client::makeStreamedRequest' => [Client::class, 'makeStreamedRequest', 'makeStreamedRequest(string $method, string $endpoint, ?string $sink = null): ProofAge\Sdk\Http\Response'];
         yield 'Client::pushMiddleware' => [Client::class, 'pushMiddleware', 'pushMiddleware(callable $middleware, ?string $name = null): static'];

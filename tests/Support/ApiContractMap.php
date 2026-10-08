@@ -98,6 +98,23 @@ class ApiContractMap
                 'request' => ['status', 'reason'],
                 'response' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at'],
             ],
+            'webhookSubscriptions.create' => [
+                'method' => 'POST', 'path' => '/webhook-subscriptions', 'operationId' => 'createWebhookSubscription',
+                'request' => ['url', 'statuses', 'include_document_data'],
+                'response' => ['id', 'url', 'statuses', 'include_document_data', 'created_at'],
+                'responseStatus' => '201',
+            ],
+            'webhookSubscriptions.list' => [
+                'method' => 'GET', 'path' => '/webhook-subscriptions', 'operationId' => 'listWebhookSubscriptions',
+                'request' => [],
+                'response' => ['data'],
+                'responseItems' => ['data' => ['id', 'url', 'statuses', 'include_document_data', 'created_at']],
+            ],
+            'webhookSubscriptions.delete' => [
+                'method' => 'DELETE', 'path' => '/webhook-subscriptions/{subscription}', 'operationId' => 'deleteWebhookSubscription',
+                'request' => [],
+                'response' => null,
+            ],
         ];
     }
 }
