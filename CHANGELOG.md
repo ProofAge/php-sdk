@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `ProofAge\Sdk\Enums\WebhookEvent` (`status.updated`, `data.updated`) names the new `event` field
+  of the webhook body. `data.updated` is sent when a tenant corrects document fields the reader got
+  wrong: `status` is the current one, unchanged, `document` holds the corrected values and
+  `changed_fields` names what changed. A body without `event` means `status.updated`. `AGENTS.md`
+  and the README document it; the SDK has no webhook DTO, so there is no other code change.
+- `resources/openapi.json` synced from the docs.
+
 ## 0.6.0 - 2026-10-02
 
 ### Added

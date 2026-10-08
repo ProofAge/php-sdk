@@ -197,6 +197,24 @@ Codes, in the order they are checked: `MISSING_SIGNATURE`, `MISSING_TIMESTAMP`,
 `MISSING_AUTH_CLIENT`, `INVALID_AUTH_CLIENT`, `TIMESTAMP_TOO_OLD`, `INVALID_SIGNATURE`. The
 timestamp tolerance defaults to 300 seconds (third constructor argument).
 
+Read `event` before `status`. It is `status.updated` for a decision, and `data.updated` when someone
+on your team corrected document fields the reader got wrong: `status` is then the current one,
+unchanged, `document` has the corrected values and `changed_fields` the names of the fields that
+changed. A body without `event` (a retry of an older delivery) is `status.updated`. The SDK has no
+webhook model; `ProofAge\Sdk\Enums\WebhookEvent` names the two events:
+
+```php
+use ProofAge\Sdk\Enums\WebhookEvent;
+
+$body = json_decode($rawBody, true);
+
+if (WebhookEvent::tryFrom($body['event'] ?? 'status.updated') === WebhookEvent::DATA_UPDATED) {
+    // refresh the stored document fields; this is not a new decision
+    http_response_code(200);
+    exit;
+}
+```
+
 ## Middleware
 
 A middleware is `callable(Request $request, callable $next): Response`. It runs once per HTTP

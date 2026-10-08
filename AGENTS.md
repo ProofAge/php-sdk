@@ -136,12 +136,14 @@ Body:
 ```
 {
   "verification_id": string,
-  "status": string,
+  "event"?: "status.updated"|"data.updated",   // absent = status.updated (a retry of a delivery created before the field existed); ProofAge\Sdk\Enums\WebhookEvent
+  "status": string,                            // on data.updated: the current status, unchanged
   "external_id": string|null,
   "external_metadata": object|null,
   "reason": string|null,                       // only on resubmission_requested / declined
   "timestamp": string (ISO8601),
   "document": { "type": string|null, "issuing_country": string|null, "issuing_subdivision": string|null, "fields": {...} },   // the array shape of document() without media; absent on a body sent before this existed
+  "changed_fields"?: string[],                 // only on data.updated: names of what the correction changed (document.fields keys, or type, issuing_country, issuing_subdivision), no values
   "duplicate_detected"?: true,                 // present only when a duplicate was found
   "duplicate_count"?: int,                     // with duplicate_detected: every match found
   "duplicate_of"?: { "verification_id": string, "external_id": string|null },   // the first match
@@ -150,6 +152,16 @@ Body:
                           "performed_by": string, "source_status"?: string|null, "source_reason"?: string|null }
 }
 ```
+
+**Dispatch on `event` first** (`WebhookEvent::tryFrom($body['event'] ?? 'status.updated')`).
+`status.updated` is every webhook you already know: the verification moved to `status`.
+`data.updated` means someone on the tenant's team corrected document fields the reader got wrong
+(console or MCP): `status` is the current one and a correction never changes it, `document` holds the
+corrected values and `changed_fields` names what changed. It is not a decision: update the stored
+document fields and leave the verification's status alone. A handler that ignores `event` sees what
+looks like a resend of the same status, which it must tolerate anyway (de-duplicate on
+`X-ProofAge-Webhook-Delivery-Id`, make applying a status idempotent). `tryFrom()` returns null for an
+event added later: ignore it with a 2xx.
 
 `document` is on every decision webhook, whatever the status: the same object `document()` returns
 (`type`, `issuing_country`, `issuing_subdivision`, `fields`; see its array shape in `src/Resources/VerificationResource.php`),
