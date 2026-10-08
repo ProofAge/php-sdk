@@ -2731,13 +2731,13 @@
     "verificationDecision": {
       "post": {
         "summary": "Verification status changed, or document data corrected",
-        "description": "ProofAge sends this request to the workspace's webhook URL each time a verification moves to `approved`, `declined`, `resubmission_requested`, `review`, `abandoned` or `expired`. One verification can therefore produce several events. The same request, with `event` set to `data.updated`, is also sent when someone on your team corrects the document fields the reader got wrong, from the console or the MCP server; `status` is then the verification's current status, unchanged. Dispatch on `event` first. Verify `X-HMAC-Signature` before trusting the body: it is the hex HMAC-SHA256 of `{X-Timestamp}.{raw body}`, keyed with the workspace's active secret key. Respond with any 2xx. A 408, 429 or 5xx response, or no response within 30 seconds, is retried after 5, 15 and 60 minutes. See [Webhooks](/integration/webhooks).",
+        "description": "ProofAge sends this request to the workspace's webhook URL each time a verification moves to `approved`, `declined`, `resubmission_requested`, `review`, `abandoned` or `expired`. One verification can therefore produce several events. The same request, with `event` set to `data.updated`, is also sent when someone on your team corrects the document fields the reader got wrong, from the console or the MCP server; `status` is then the verification's current status, unchanged. Dispatch on `event` first. Each webhook subscription created with `POST /v1/webhook-subscriptions` also receives the `status.updated` events for the statuses it asked for, never `data.updated`; unless it was created with `include_document_data`, its body leaves out `document`, `fingerprint_signals` and `manual_moderation.performed_by`. Verify `X-HMAC-Signature` before trusting the body: it is the hex HMAC-SHA256 of `{X-Timestamp}.{raw body}`, keyed with the workspace's active secret key, or for a subscription with the secret key that created it. Respond with any 2xx. A 408, 429 or 5xx response, or no response within 30 seconds, is retried after 5, 15 and 60 minutes. Redirects are not followed. A subscription whose URL answers 410 is deleted. See [Webhooks](/integration/webhooks).",
         "parameters": [
           {
             "name": "X-HMAC-Signature",
             "in": "header",
             "required": true,
-            "description": "Hex HMAC-SHA256 of `{X-Timestamp}.{raw body}` with the workspace's active secret key.",
+            "description": "Hex HMAC-SHA256 of `{X-Timestamp}.{raw body}` with the workspace's active secret key; for a webhook subscription, with the secret key that created it (the active key once that one is deleted).",
             "schema": {
               "type": "string"
             }
@@ -2782,8 +2782,7 @@
                   "external_id",
                   "external_metadata",
                   "reason",
-                  "timestamp",
-                  "document"
+                  "timestamp"
                 ],
                 "properties": {
                   "verification_id": {
@@ -2797,7 +2796,7 @@
                       "status.updated",
                       "data.updated"
                     ],
-                    "description": "What happened. `status.updated`: the verification moved to `status`. `data.updated`: someone on your team corrected document fields; `status` is the current status, which a correction never changes, `document` carries the corrected values and `changed_fields` names what changed. A payload without `event`, such as a retry of a delivery created before this field existed, means `status.updated`."
+                    "description": "What happened. `status.updated`: the verification moved to `status`. `data.updated`: someone on your team corrected document fields; `status` is the current status, which a correction never changes, `document` carries the corrected values and `changed_fields` names what changed. A payload without `event`, such as a retry of a delivery created before this field existed, means `status.updated`. Webhook subscriptions receive `status.updated` only."
                   },
                   "status": {
                     "type": "string",
@@ -2964,7 +2963,7 @@
                       "issuing_subdivision",
                       "fields"
                     ],
-                    "description": "The same object `GET /v1/verifications/{id}/document` returns, without `media` and `meta`, read from the attempt that decided the verification. Identity (KYC) workspaces receive eleven `fields`; age verification workspaces receive `first_name`, `last_name`, `date_of_birth` and `document_number` only, and the other seven keys are absent. `null` means the field was not read, is not printed on that document, or no document was read at all (a facial age estimation that passed without an ID, a test workspace, a wallet check); `document` itself is never null. Dates are `YYYY-MM-DD` and countries ISO 3166-1 alpha-2 (`XK` for Kosovo); `type` and `gender` are open enums. Fields your team corrected show the corrected value. A resend or a manual retry carries the document as it is now; an automatic retry carries the body as first sent. After the person's data is erased, only `type` and `issuing_country` are kept."
+                    "description": "The same object `GET /v1/verifications/{id}/document` returns, without `media` and `meta`, read from the attempt that decided the verification. Identity (KYC) workspaces receive eleven `fields`; age verification workspaces receive `first_name`, `last_name`, `date_of_birth` and `document_number` only, and the other seven keys are absent. `null` means the field was not read, is not printed on that document, or no document was read at all (a facial age estimation that passed without an ID, a test workspace, a wallet check); `document` itself is never null. Dates are `YYYY-MM-DD` and countries ISO 3166-1 alpha-2 (`XK` for Kosovo); `type` and `gender` are open enums. Fields your team corrected show the corrected value. A resend or a manual retry carries the document as it is now; an automatic retry carries the body as first sent. After the person's data is erased, only `type` and `issuing_country` are kept. Always present on the workspace webhook; left out of a webhook subscription's deliveries unless it was created with `include_document_data`."
                   },
                   "changed_fields": {
                     "type": "array",
@@ -2999,7 +2998,7 @@
                   },
                   "fingerprint_signals": {
                     "type": "object",
-                    "description": "Optional device and network signals collected during the session. Treat it as informational; its fields may change.",
+                    "description": "Optional device and network signals collected during the session. Treat it as informational; its fields may change. Left out of a webhook subscription's deliveries unless it was created with `include_document_data`.",
                     "additionalProperties": {}
                   },
                   "manual_moderation": {
@@ -3043,7 +3042,8 @@
                               "null"
                             ]
                           }
-                        }
+                        },
+                        "description": "Who moderated. Left out of a webhook subscription's deliveries unless it was created with `include_document_data`."
                       },
                       "source_status": {
                         "type": [
