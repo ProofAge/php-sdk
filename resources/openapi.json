@@ -427,6 +427,250 @@
             }
           }
         }
+      },
+      "get": {
+        "operationId": "listVerifications",
+        "description": "Lists the workspace's verifications, newest first, each in the shape Get verification status returns.\nFilter by `status` and `external_id`; page with `limit` and the `next_cursor` of the previous\npage, which is null on the last page.",
+        "summary": "List verifications",
+        "tags": [
+          "Verification"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only verifications in one of these statuses, comma-separated: `created`, `started`, `submitted`, `resubmission_requested`, `approved`, `declined`, `abandoned`, `expired`, `review`. A verification waiting for a document is stored as `started` and listed as `documents_required`.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "approved,declined"
+          },
+          {
+            "name": "external_id",
+            "in": "query",
+            "description": "Only verifications created with this external_id (exact, case-sensitive match).",
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "How many verifications to return, 1 to 100.",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "The `next_cursor` of the previous page. Send the same filters with it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of verifications, newest first. `next_cursor` is null on the last page.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "data": [
+                        {
+                          "id": "550e8400-e29b-41d4-a716-446655440000",
+                          "external_id": "user-123",
+                          "external_metadata": {
+                            "plan": "premium"
+                          },
+                          "redirect_url": "https://example.com/callback",
+                          "status": "approved",
+                          "reason": null,
+                          "duplicate_check": {
+                            "checked": true,
+                            "duplicate_count": 0,
+                            "duplicates": []
+                          },
+                          "erasure": null,
+                          "consent_accepted_at": "2026-03-19T12:01:00+00:00",
+                          "created_at": "2026-03-19T12:00:00+00:00",
+                          "updated_at": "2026-03-19T12:05:00+00:00"
+                        }
+                      ],
+                      "next_cursor": "eyJjcmVhdGVkX2F0IjoiMjAyNi0wMy0xOSAxMjowMDowMCIsImlkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAwIiwiX3BvaW50c1RvTmV4dEl0ZW1zIjp0cnVlfQ"
+                    }
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "external_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "external_metadata": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "redirect_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "duplicate_check": {
+                            "type": "object",
+                            "properties": {
+                              "checked": {
+                                "type": "boolean"
+                              },
+                              "duplicate_count": {
+                                "type": "integer"
+                              },
+                              "duplicates": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "verification_id": {
+                                      "type": "string"
+                                    },
+                                    "external_id": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "similarity_score": {
+                                      "type": "number"
+                                    },
+                                    "verified_at": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "verification_id",
+                                    "external_id",
+                                    "similarity_score",
+                                    "verified_at"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "checked",
+                              "duplicate_count",
+                              "duplicates"
+                            ]
+                          },
+                          "erasure": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "erased_at": {
+                                "type": "string"
+                              },
+                              "scope": {
+                                "type": "string"
+                              },
+                              "reason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "requested_via": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "erased_at",
+                              "scope",
+                              "reason",
+                              "requested_via"
+                            ]
+                          },
+                          "consent_accepted_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "updated_at": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "external_id",
+                          "external_metadata",
+                          "redirect_url",
+                          "status",
+                          "reason",
+                          "duplicate_check",
+                          "erasure",
+                          "consent_accepted_at",
+                          "created_at",
+                          "updated_at"
+                        ]
+                      }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationException"
+          }
+        }
       }
     },
     "/verifications/{verification}/consent": {
@@ -1216,6 +1460,593 @@
         }
       }
     },
+    "/verifications/{verification}/test-outcome": {
+      "post": {
+        "operationId": "setTestVerificationOutcome",
+        "description": "Test workspaces only: finishes a verification with the given status without a person going\nthrough the widget, so an integration's handling of each outcome can be tested end to end.\nA verification nobody has opened is moved through `started` and `submitted` first, as a\nperson's submission would move it, so the outcome is the only decision webhooks are sent for.\nWorks from `created`, `started`, `submitted`, `review` and `resubmission_requested`.\n\nAnswers with the verification, as Get verification status does.",
+        "summary": "Set a test outcome",
+        "tags": [
+          "Verification"
+        ],
+        "parameters": [
+          {
+            "name": "verification",
+            "in": "path",
+            "required": true,
+            "description": "The verification ID",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTestVerificationOutcomeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The verification with its new status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "id": "550e8400-e29b-41d4-a716-446655440000",
+                      "external_id": "user-123",
+                      "external_metadata": null,
+                      "redirect_url": "https://example.com/callback",
+                      "status": "approved",
+                      "reason": null,
+                      "duplicate_check": {
+                        "checked": false,
+                        "duplicate_count": 0,
+                        "duplicates": []
+                      },
+                      "erasure": null,
+                      "consent_accepted_at": null,
+                      "created_at": "2026-03-19T12:00:00+00:00",
+                      "updated_at": "2026-03-19T12:00:05+00:00"
+                    }
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "external_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "external_metadata": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "redirect_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "duplicate_check": {
+                      "type": "object",
+                      "properties": {
+                        "checked": {
+                          "type": "boolean"
+                        },
+                        "duplicate_count": {
+                          "type": "integer"
+                        },
+                        "duplicates": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "verification_id": {
+                                "type": "string"
+                              },
+                              "external_id": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "similarity_score": {
+                                "type": "number"
+                              },
+                              "verified_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "verification_id",
+                              "external_id",
+                              "similarity_score",
+                              "verified_at"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "checked",
+                        "duplicate_count",
+                        "duplicates"
+                      ]
+                    },
+                    "erasure": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "erased_at": {
+                          "type": "string"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "requested_via": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "erased_at",
+                        "scope",
+                        "reason",
+                        "requested_via"
+                      ]
+                    },
+                    "consent_accepted_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "updated_at": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "external_id",
+                    "external_metadata",
+                    "redirect_url",
+                    "status",
+                    "reason",
+                    "duplicate_check",
+                    "erasure",
+                    "consent_accepted_at",
+                    "created_at",
+                    "updated_at"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ModelNotFoundException"
+          },
+          "422": {
+            "description": "The verification is already final (`INVALID_STATUS`), or a field is invalid (`message` and `errors` by field).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "INVALID_STATUS",
+                        "message": "The verification is already approved, a final status."
+                      }
+                    }
+                  ],
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        },
+                        "errors": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "required": [
+                        "message",
+                        "errors"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The workspace is a live one (`TEST_WORKSPACE_ONLY`), or the verification belongs to another workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "TEST_WORKSPACE_ONLY",
+                        "message": "The outcome can only be set in a test workspace."
+                      }
+                    }
+                  ],
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhook-subscriptions": {
+      "post": {
+        "operationId": "createWebhookSubscription",
+        "description": "Subscribes a URL to decision webhooks, in addition to the workspace webhook URL set in the console.\nBuilt for REST hooks such as Zapier: subscribe when an automation is turned on, delete the\nsubscription when it is turned off. A workspace can have up to 50.\n\nEach delivery has the workspace webhook's body and headers, signed with the secret key that\nsigned this request while that key exists, and with the active secret key after it is deleted.\nUnless `include_document_data` is true, the body leaves out `document`, `fingerprint_signals` and\n`manual_moderation.performed_by`. A delivery answered with `410 Gone` deletes the subscription.",
+        "summary": "Create a webhook subscription",
+        "tags": [
+          "WebhookSubscription"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StoreWebhookSubscriptionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The subscription. `statuses` is null when it receives every decision status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "id": "0199c4b2-7d1e-7a3f-9c0e-5b6a7c8d9e0f",
+                      "url": "https://hooks.zapier.com/hooks/standard/12345678/abcdef/",
+                      "statuses": [
+                        "approved",
+                        "declined"
+                      ],
+                      "include_document_data": false,
+                      "created_at": "2026-10-08T12:00:00+00:00"
+                    }
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "statuses": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "include_document_data": {
+                      "type": "boolean"
+                    },
+                    "created_at": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "url",
+                    "statuses",
+                    "include_document_data",
+                    "created_at"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The workspace already has 50 webhook subscriptions (`WEBHOOK_SUBSCRIPTION_LIMIT`), or a field is invalid (`message` and `errors` by field).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "WEBHOOK_SUBSCRIPTION_LIMIT",
+                        "message": "A workspace can have at most 50 webhook subscriptions. Delete one first."
+                      }
+                    }
+                  ],
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        },
+                        "errors": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "required": [
+                        "message",
+                        "errors"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listWebhookSubscriptions",
+        "description": "Lists the workspace's webhook subscriptions, newest first.",
+        "summary": "List webhook subscriptions",
+        "tags": [
+          "WebhookSubscription"
+        ],
+        "responses": {
+          "200": {
+            "description": "The workspace's webhook subscriptions, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "data": [
+                        {
+                          "id": "0199c4b2-7d1e-7a3f-9c0e-5b6a7c8d9e0f",
+                          "url": "https://hooks.zapier.com/hooks/standard/12345678/abcdef/",
+                          "statuses": null,
+                          "include_document_data": false,
+                          "created_at": "2026-10-08T12:00:00+00:00"
+                        }
+                      ]
+                    }
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "statuses": {
+                            "type": [
+                              "array",
+                              "null"
+                            ],
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "include_document_data": {
+                            "type": "boolean"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "url",
+                          "statuses",
+                          "include_document_data",
+                          "created_at"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhook-subscriptions/{subscription}": {
+      "delete": {
+        "operationId": "deleteWebhookSubscription",
+        "description": "Stops the deliveries to the subscription. Deliveries already queued are not sent.",
+        "summary": "Delete a webhook subscription",
+        "tags": [
+          "WebhookSubscription"
+        ],
+        "parameters": [
+          {
+            "name": "subscription",
+            "in": "path",
+            "required": true,
+            "description": "The webhook subscription ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The subscription is deleted. The body is empty.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No subscription with this id in the workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "message": "Resource not found"
+                    }
+                  ],
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspace": {
       "get": {
         "operationId": "getWorkspace",
@@ -1333,6 +2164,33 @@
         ],
         "title": "BlockedFaceReasonCode"
       },
+      "SetTestVerificationOutcomeRequest": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "The outcome to set: `approved`, `declined`, `review` or `resubmission_requested`.",
+            "enum": [
+              "approved",
+              "declined",
+              "review",
+              "resubmission_requested"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A note kept with a `resubmission_requested` outcome in the verification's history. It is not the decision `reason` code.",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "SetTestVerificationOutcomeRequest"
+      },
       "StoreVerificationConsentRequest": {
         "type": "object",
         "properties": {
@@ -1361,7 +2219,7 @@
               "null"
             ],
             "format": "uri",
-            "description": "Where the person's browser is sent after the final screen. Ignored unless the request is HMAC-signed.",
+            "description": "Where the person's browser is sent after the final screen, an http or https URL. Ignored unless the request is HMAC-signed.",
             "maxLength": 2048
           },
           "external_id": {
@@ -1390,6 +2248,44 @@
           }
         },
         "title": "StoreVerificationRequest"
+      },
+      "StoreWebhookSubscriptionRequest": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Where ProofAge POSTs the decision webhooks, signed like the workspace webhook. It must be a public URL: private, local and cloud-metadata addresses are refused.",
+            "maxLength": 2048
+          },
+          "include_document_data": {
+            "type": "boolean",
+            "description": "Include the document read from the identity document (names, date of birth, document number), the fingerprint signals (IP address, timezones) and the name and email of the operator who moderated. Off by default, so personal data stays out of the subscriber's logs.",
+            "default": false
+          },
+          "statuses": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "description": "Only send these statuses: `approved`, `declined`, `resubmission_requested`, `review`, `abandoned`, `expired`. Omit it, or send null, for all of them.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "approved",
+                "declined",
+                "resubmission_requested",
+                "abandoned",
+                "expired",
+                "review"
+              ]
+            }
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "StoreWebhookSubscriptionRequest"
       },
       "UploadMediaRequest": {
         "type": "object",
@@ -1439,9 +2335,13 @@
             "type": "object",
             "properties": {
               "type": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "issuing_country": {
@@ -1677,6 +2577,38 @@
           "gender"
         ],
         "title": "VerificationEstimationResource"
+      },
+      "WebhookSubscriptionResource": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "statuses": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {}
+          },
+          "include_document_data": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "statuses",
+          "include_document_data",
+          "created_at"
+        ],
+        "title": "WebhookSubscriptionResource"
       },
       "WorkspaceResource": {
         "type": "object",
