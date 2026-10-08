@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `verifications()->list($query)` calls `GET /v1/verifications`: filter by `status` (a string, a
+  list or `VerificationStatus` cases, sent comma-separated), `external_id`, `limit`, and page with
+  `cursor` / `next_cursor`. The query is signed as the API normalizes it.
+- `verifications($id)->setTestOutcome(['status' => ..., 'reason' => ...])` calls
+  `POST /v1/verifications/{id}/test-outcome` (test workspaces only) and returns the verification.
+- `webhookSubscriptions()` with `create()`, `list()` and `delete()` for
+  `/v1/webhook-subscriptions`: REST hook URLs that receive the decision webhooks in addition to
+  the workspace webhook URL.
+- `tests/ApiContractTest.php` checks query parameters and the item fields of list responses
+  against the spec.
+- `resources/openapi.json` synced from the docs.
+
 ## 0.7.0 - 2026-10-08
 
 ### Added

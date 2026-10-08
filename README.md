@@ -54,7 +54,11 @@ says which SDK sent it: `X-ProofAge-Sdk: php/0.3.0` and `User-Agent: ProofAge-PH
 A `GET` gets another attempt after a transport failure, a 429, or any non-2xx status that is not a
 4xx (a 3xx or a 5xx).
 
-A `POST` — `create()`, `acceptConsent()`, `uploadMedia()`, `submit()`, `blockFace()` — is retried
+A `DELETE` (`webhookSubscriptions()->delete()`) is retried the same way; if the first attempt went
+through, the retry answers 404.
+
+A `POST` — `create()`, `acceptConsent()`, `uploadMedia()`, `submit()`, `blockFace()`,
+`setTestOutcome()`, `webhookSubscriptions()->create()` — is retried
 only when repeating it cannot make the server act twice: when the connection failed before the
 request was sent (DNS, connection refused, TLS handshake), or on a 429 that carries `Retry-After`.
 A 5xx or a timeout on a `POST` is thrown at once, because the server may already have created the
@@ -90,8 +94,66 @@ $client->workspace()->get();
 $client->workspace()->getConsent();
 ```
 
-Methods return the decoded JSON as `array|null`; `uploadMedia()` and `submit()` return `null`,
-because the API answers them with an empty body. Every request and response shape is documented
+### Listing verifications
+
+```php
+use ProofAge\Sdk\Enums\VerificationStatus;
+
+$cursor = null;
+
+do {
+    $page = $client->verifications()->list([
+        'status' => [VerificationStatus::APPROVED, VerificationStatus::DECLINED],   // or 'approved,declined'
+        'external_id' => 'user-42',
+        'limit' => 100,
+        'cursor' => $cursor,
+    ]);
+
+    foreach ($page['data'] as $verification) {
+        // the shape get() returns, newest first
+    }
+
+    $cursor = $page['next_cursor'];
+} while ($cursor !== null);
+```
+
+A status list is sent comma-separated and null entries are left out. The query is signed as the API
+normalizes it (keys sorted, RFC 3986 encoding). Send the same filters with every `cursor`.
+
+### Test outcomes
+
+In a test workspace, finish a verification with a chosen outcome to exercise your webhook handler
+end to end. A live workspace answers 403 with `getErrorCode()` `TEST_WORKSPACE_ONLY`; a
+verification already in a final status answers 422 `INVALID_STATUS`.
+
+```php
+$client->verifications($id)->setTestOutcome(['status' => 'approved']);
+$client->verifications($id)->setTestOutcome(['status' => 'resubmission_requested', 'reason' => 'Blurry photo']);
+```
+
+### Webhook subscriptions
+
+REST hooks (Zapier and the like) subscribe a URL to the decision webhooks, in addition to the
+workspace webhook URL. A workspace can have up to 50 (`WEBHOOK_SUBSCRIPTION_LIMIT` past that).
+
+```php
+$subscription = $client->webhookSubscriptions()->create([
+    'url' => 'https://hooks.zapier.com/hooks/standard/12345678/abcdef/',
+    'statuses' => ['approved', 'declined'],   // omit or null for every decision status
+    'include_document_data' => false,         // the default: no document, fingerprint signals or moderator
+]);
+
+$client->webhookSubscriptions()->list();      // ['data' => [...]], newest first
+$client->webhookSubscriptions()->delete($subscription['id']);
+```
+
+Deliveries carry the workspace webhook's headers and body and are signed with the secret key that
+created the subscription (the active key once that one is deleted). A delivery answered with
+`410 Gone` deletes the subscription.
+
+Methods return the decoded JSON as `array|null`; `uploadMedia()`, `submit()` and `blockFace()`
+return `null` and `webhookSubscriptions()->delete()` returns nothing, because the API answers them
+with an empty body. Every request and response shape is documented
 in [`AGENTS.md`](AGENTS.md) and in the `@param`/`@return` PHPDoc on `src/Resources/`.
 
 `uploadMedia()` accepts a path, any `\SplFileInfo` (Symfony's and Laravel's `UploadedFile`
