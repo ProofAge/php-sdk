@@ -182,7 +182,7 @@ Body:
   "duplicate_of"?: { "verification_id": string, "external_id": string|null },   // the first match
   "fingerprint_signals"?: { "ip_address"?, "ip_country_code"?, "ip_timezone"?, "device_timezone"?, ... },  // present only when signals were collected
   "manual_moderation"?: { "action": "approve"|"decline", "reason": string, "source": string,
-                          "performed_by": string, "source_status"?: string|null, "source_reason"?: string|null }
+                          "performed_by"?: string, "source_status"?: string|null, "source_reason"?: string|null }   // performed_by is absent on a subscription delivery without include_document_data
 }
 ```
 
