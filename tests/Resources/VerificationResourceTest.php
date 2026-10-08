@@ -62,17 +62,20 @@ class VerificationResourceTest extends TestCase
         ], $overrides);
     }
 
-    /** @param array<string, mixed> $fakeResponses */
-    private function makeFakedClient(array $fakeResponses): Client
+    /**
+     * @param  array<string, mixed>  $fakeResponses
+     * @param  array<string, mixed>  $config
+     */
+    private function makeFakedClient(array $fakeResponses, array $config = []): Client
     {
         $this->fake = new FakeHttpClient($fakeResponses);
 
-        return new Client([
+        return new Client(array_merge([
             'api_key' => 'test-api-key',
             'secret_key' => 'test-secret-key',
             'base_url' => 'https://api.test.com',
             'version' => 'v1',
-        ], $this->fake);
+        ], $config), $this->fake);
     }
 
     public function test_verifications_returns_a_resource_with_or_without_an_id(): void
@@ -710,5 +713,170 @@ class VerificationResourceTest extends TestCase
         $this->expectExceptionMessage('Verification ID is required');
 
         $client->verifications()->blockFace();
+    }
+
+    public function test_list_sends_a_signed_get_without_a_query(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/v1/verifications' => FakeHttpClient::json(['data' => [], 'next_cursor' => null]),
+        ]);
+
+        $result = $client->verifications()->list();
+
+        $this->assertSame(['data' => [], 'next_cursor' => null], $result);
+
+        $sent = $this->fake->sent()[0];
+        $this->assertSame('GET', $sent->method);
+        $this->assertSame('https://api.test.com/v1/verifications', $sent->url);
+        $this->assertNull($sent->body);
+        $this->assertSame(hash_hmac('sha256', 'GET/v1/verifications', 'test-secret-key'), $sent->header('X-HMAC-Signature'));
+    }
+
+    public function test_list_signs_the_query_as_the_api_normalizes_it(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/v1/verifications?*' => FakeHttpClient::json([
+                'data' => [self::verification('ver_2', 'declined'), self::verification('ver_1', 'approved')],
+                'next_cursor' => 'eyJpZCI6InZlcl8xIn0',
+            ]),
+        ]);
+
+        $result = $client->verifications()->list([
+            'status' => ['approved', 'declined'],
+            'limit' => 2,
+            'external_id' => 'user 42/ü',
+            'cursor' => null,
+        ]);
+
+        $this->assertSame(['ver_2', 'ver_1'], array_column($result['data'], 'id'));
+        $this->assertSame('eyJpZCI6InZlcl8xIn0', $result['next_cursor']);
+
+        // Keys sorted, RFC 3986 encoding: the comma is %2C, the space %20, never +.
+        $query = 'external_id=user%2042%2F%C3%BC&limit=2&status=approved%2Cdeclined';
+        $sent = $this->fake->sent()[0];
+        $this->assertSame('https://api.test.com/v1/verifications?'.$query, $sent->url);
+        $this->assertSame('/v1/verifications?'.$query, $sent->path);
+        $this->assertSame(hash_hmac('sha256', 'GET/v1/verifications?'.$query, 'test-secret-key'), $sent->header('X-HMAC-Signature'));
+    }
+
+    public function test_list_takes_the_status_filter_as_a_string_or_enum_cases(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/v1/verifications?*' => FakeHttpClient::json(['data' => [], 'next_cursor' => null]),
+        ]);
+
+        $client->verifications()->list(['status' => 'approved,declined']);
+        $client->verifications()->list(['status' => [VerificationStatus::APPROVED, VerificationStatus::DECLINED]]);
+        $client->verifications()->list(['status' => VerificationStatus::REVIEW, 'cursor' => 'abc']);
+
+        $this->assertSame([
+            'https://api.test.com/v1/verifications?status=approved%2Cdeclined',
+            'https://api.test.com/v1/verifications?status=approved%2Cdeclined',
+            'https://api.test.com/v1/verifications?cursor=abc&status=review',
+        ], array_map(static fn (Request $request): string => $request->url, $this->fake->sent()));
+    }
+
+    public function test_list_leaves_out_null_entries_and_an_empty_status_list(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/v1/verifications' => FakeHttpClient::json(['data' => [], 'next_cursor' => null]),
+        ]);
+
+        $client->verifications()->list(['status' => [], 'external_id' => null, 'limit' => null]);
+
+        $this->assertSame('https://api.test.com/v1/verifications', $this->fake->sent()[0]->url);
+    }
+
+    public function test_list_is_retried_after_a_server_error(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/v1/verifications?*' => [
+                FakeHttpClient::json(['message' => 'Server Error'], 503),
+                FakeHttpClient::json(['data' => [], 'next_cursor' => null]),
+            ],
+        ], ['retry_delay' => 0]);
+
+        $result = $client->verifications()->list(['limit' => 5]);
+
+        $this->assertSame([], $result['data']);
+        $this->fake->assertSentCount(2);
+    }
+
+    public function test_set_test_outcome_posts_the_status_and_returns_the_verification(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/v1/verifications/ver_123/test-outcome' => FakeHttpClient::json(self::verification('ver_123', 'resubmission_requested')),
+        ]);
+
+        $result = $client->verifications('ver_123')->setTestOutcome(['status' => 'resubmission_requested', 'reason' => 'Blurry photo']);
+
+        $this->assertSame('ver_123', $result['id']);
+        $this->assertSame(VerificationStatus::RESUBMISSION_REQUESTED, VerificationStatus::tryFrom($result['status']));
+
+        $expectedBody = json_encode(['status' => 'resubmission_requested', 'reason' => 'Blurry photo']);
+        $sent = $this->fake->sent()[0];
+        $this->assertSame('POST', $sent->method);
+        $this->assertSame($expectedBody, $sent->body?->bytes);
+        $this->assertSame(
+            hash_hmac('sha256', 'POST/v1/verifications/ver_123/test-outcome'.$expectedBody, 'test-secret-key'),
+            $sent->header('X-HMAC-Signature'),
+        );
+    }
+
+    public function test_set_test_outcome_is_not_retried_after_a_server_error(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/v1/verifications/ver_123/test-outcome' => FakeHttpClient::json(['message' => 'Server Error'], 500),
+        ], ['retry_delay' => 0]);
+
+        try {
+            $client->verifications('ver_123')->setTestOutcome(['status' => 'approved']);
+            $this->fail('Expected a ProofAgeException.');
+        } catch (ProofAgeException $e) {
+            $this->assertSame(500, $e->getCode());
+        }
+
+        $this->fake->assertSentCount(1);
+    }
+
+    public function test_set_test_outcome_on_a_live_workspace_carries_test_workspace_only(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/*' => FakeHttpClient::json(['error' => ['code' => 'TEST_WORKSPACE_ONLY', 'message' => 'The outcome can only be set in a test workspace.']], 403),
+        ]);
+
+        try {
+            $client->verifications('ver_123')->setTestOutcome(['status' => 'approved']);
+            $this->fail('Expected a ProofAgeException.');
+        } catch (ProofAgeException $e) {
+            $this->assertSame(403, $e->getCode());
+            $this->assertSame('TEST_WORKSPACE_ONLY', $e->getErrorCode());
+        }
+    }
+
+    public function test_set_test_outcome_on_a_final_verification_is_a_validation_exception(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/*' => FakeHttpClient::json(['error' => ['code' => 'INVALID_STATUS', 'message' => 'The verification is already approved, a final status.']], 422),
+        ]);
+
+        try {
+            $client->verifications('ver_123')->setTestOutcome(['status' => 'declined']);
+            $this->fail('Expected a ValidationException.');
+        } catch (ValidationException $e) {
+            $this->assertSame('INVALID_STATUS', $e->getErrorCode());
+        }
+    }
+
+    public function test_set_test_outcome_throws_when_no_id(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/*' => FakeHttpClient::json([]),
+        ]);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Verification ID is required');
+
+        $client->verifications()->setTestOutcome(['status' => 'approved']);
     }
 }

@@ -28,6 +28,7 @@ class ResourceSurfaceTest extends TestCase
 
         yield 'VerificationResource::__construct' => [VerificationResource::class, '__construct', "__construct({$client} \$client, ?string \$verificationId = null)"];
         yield 'VerificationResource::create' => [VerificationResource::class, 'create', 'create(array $data): ?array'];
+        yield 'VerificationResource::list' => [VerificationResource::class, 'list', 'list(array $query = []): ?array'];
         yield 'VerificationResource::find' => [VerificationResource::class, 'find', 'find(string $id): ?array'];
         yield 'VerificationResource::get' => [VerificationResource::class, 'get', 'get(): ?array'];
         yield 'VerificationResource::acceptConsent' => [VerificationResource::class, 'acceptConsent', 'acceptConsent(array $data): ?array'];
@@ -38,6 +39,7 @@ class ResourceSurfaceTest extends TestCase
         yield 'VerificationResource::downloadMediaTo' => [VerificationResource::class, 'downloadMediaTo', 'downloadMediaTo(string $mediaId, string $path): string'];
         yield 'VerificationResource::estimation' => [VerificationResource::class, 'estimation', 'estimation(): ?array'];
         yield 'VerificationResource::blockFace' => [VerificationResource::class, 'blockFace', 'blockFace(?array $data = null): ?array'];
+        yield 'VerificationResource::setTestOutcome' => [VerificationResource::class, 'setTestOutcome', 'setTestOutcome(array $data): ?array'];
 
         yield 'Client::workspace' => [Client::class, 'workspace', 'workspace(): ProofAge\Sdk\Resources\WorkspaceResource'];
         yield 'Client::verifications' => [Client::class, 'verifications', 'verifications(?string $id = null): ProofAge\Sdk\Resources\VerificationResource'];

@@ -104,6 +104,54 @@ class VerificationResource
     }
 
     /**
+     * List the workspace's verifications, newest first, each in the shape find() returns.
+     *
+     * `status` filters by one or more statuses: a comma-separated string, a list of strings,
+     * or {@see VerificationStatus} cases (a list is sent comma-separated). The filter takes the
+     * stored statuses; a verification reported as `documents_required` is stored as `started`.
+     * `external_id` is an exact, case-sensitive match. `limit` is 1 to 100 (the API's default
+     * is 20). A null entry, and an empty status list, is left out of the query.
+     *
+     * Page with `next_cursor`: pass it back as `cursor`, with the same filters, until it is
+     * null. The query is signed as the API normalizes it (keys sorted, RFC 3986 encoding).
+     *
+     * @param  array{
+     *     status?: string|VerificationStatus|list<string|VerificationStatus>|null,
+     *     external_id?: string|null,
+     *     limit?: int|null,
+     *     cursor?: string|null
+     * }  $query
+     * @return array{
+     *     data: list<array{
+     *         id: string,
+     *         external_id: string|null,
+     *         external_metadata: array<string, mixed>|null,
+     *         redirect_url: string|null,
+     *         status: string,
+     *         reason: string|null,
+     *         duplicate_check: array{
+     *             checked: bool,
+     *             duplicate_count: int,
+     *             duplicates: list<array{verification_id: string|null, external_id: string|null, similarity_score: float|null, verified_at: string|null}>
+     *         },
+     *         erasure: array{erased_at: string, scope: string, reason: string|null, requested_via: string|null}|null,
+     *         consent_accepted_at: string|null,
+     *         created_at: string,
+     *         updated_at: string
+     *     }>,
+     *     next_cursor: string|null
+     * }|null
+     */
+    public function list(array $query = []): ?array
+    {
+        $queryString = self::queryString($query);
+
+        $response = $this->client->makeRequest('GET', $queryString === '' ? 'verifications' : "verifications?{$queryString}");
+
+        return $response->json();
+    }
+
+    /**
      * Get current verification (if ID was set in constructor). The same shape as find().
      *
      * @return array{
@@ -402,5 +450,92 @@ class VerificationResource
         );
 
         return $response->json();
+    }
+
+    /**
+     * Test workspaces only: finish the verification with the given outcome, without a person
+     * going through the widget, so an integration's handling of each outcome can be tested end
+     * to end. A verification nobody has opened is moved through `started` and `submitted`
+     * first, so the outcome is the only decision webhooks are sent for. Works from `created`,
+     * `started`, `submitted`, `review` and `resubmission_requested`.
+     *
+     * `reason` is a note kept with a `resubmission_requested` outcome in the verification's
+     * history, at most 1000 characters; it is not the decision `reason` code.
+     *
+     * Returns the verification in the shape find() returns. A live workspace throws a
+     * ProofAgeException with getCode() 403 and getErrorCode() TEST_WORKSPACE_ONLY; a verification
+     * already in a final status throws a ValidationException with getErrorCode() INVALID_STATUS.
+     *
+     * @param  array{
+     *     status: 'approved'|'declined'|'review'|'resubmission_requested',
+     *     reason?: string|null
+     * }  $data
+     * @return array{
+     *     id: string,
+     *     external_id: string|null,
+     *     external_metadata: array<string, mixed>|null,
+     *     redirect_url: string|null,
+     *     status: string,
+     *     reason: string|null,
+     *     duplicate_check: array{
+     *         checked: bool,
+     *         duplicate_count: int,
+     *         duplicates: list<array{verification_id: string|null, external_id: string|null, similarity_score: float|null, verified_at: string|null}>
+     *     },
+     *     erasure: array{erased_at: string, scope: string, reason: string|null, requested_via: string|null}|null,
+     *     consent_accepted_at: string|null,
+     *     created_at: string,
+     *     updated_at: string
+     * }|null
+     */
+    public function setTestOutcome(array $data): ?array
+    {
+        if (! $this->verificationId) {
+            throw new \InvalidArgumentException('Verification ID is required');
+        }
+
+        $response = $this->client->makeRequest(
+            'POST',
+            "verifications/{$this->verificationId}/test-outcome",
+            $data
+        );
+
+        return $response->json();
+    }
+
+    /**
+     * The query string of list(): null entries and empty lists left out, a list (status)
+     * comma-separated, a VerificationStatus as its value. The Client normalizes and signs it.
+     *
+     * @param  array<string, mixed>  $query
+     */
+    private static function queryString(array $query): string
+    {
+        $params = [];
+
+        foreach ($query as $key => $value) {
+            if (is_array($value)) {
+                $value = implode(',', array_map(
+                    static fn (mixed $item): string => $item instanceof \BackedEnum ? (string) $item->value : (string) $item,
+                    $value,
+                ));
+
+                if ($value === '') {
+                    continue;
+                }
+            } elseif ($value instanceof \BackedEnum) {
+                $value = (string) $value->value;
+            } elseif (is_bool($value)) {
+                $value = $value ? '1' : '0';
+            }
+
+            if ($value === null) {
+                continue;
+            }
+
+            $params[$key] = $value;
+        }
+
+        return http_build_query($params, '', '&', PHP_QUERY_RFC3986);
     }
 }

@@ -17,11 +17,15 @@ class ApiContractMap
      * `response` is null when the API answers 2xx with no body at all (the method returns
      * null), and `[]` when the body is not JSON (the media download's bytes).
      *
+     * `query` is the set of query parameter names an operation takes (absent: none).
+     * `responseItems` names a list field of the response and the top-level fields of its items,
+     * for a list endpoint whose items the SDK types (`data` of listVerifications).
+     *
      * `responseStatus` names the success status the SDK receives when the operation documents
      * more than one: createVerification also documents a 200 compact session, sent only to the
      * hosted widget's `X-ProofAge-Client: native` header, which this SDK never sends.
      *
-     * @return array<string, array{method: string, path: string, operationId: string, request: list<string>, response: list<string>|null, responseStatus?: string}>
+     * @return array<string, array{method: string, path: string, operationId: string, request: list<string>, query?: list<string>, response: list<string>|null, responseItems?: array<string, list<string>>, responseStatus?: string}>
      */
     public static function operations(): array
     {
@@ -41,6 +45,13 @@ class ApiContractMap
                 'request' => ['callback_url', 'external_id', 'external_metadata', 'metadata'],
                 'response' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at', 'url'],
                 'responseStatus' => '201',
+            ],
+            'verifications.list' => [
+                'method' => 'GET', 'path' => '/verifications', 'operationId' => 'listVerifications',
+                'request' => [],
+                'query' => ['status', 'external_id', 'limit', 'cursor'],
+                'response' => ['data', 'next_cursor'],
+                'responseItems' => ['data' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at']],
             ],
             'verifications.find' => [
                 'method' => 'GET', 'path' => '/verifications/{verification}', 'operationId' => 'getVerification',
@@ -81,6 +92,11 @@ class ApiContractMap
                 'method' => 'POST', 'path' => '/verifications/{verification}/blocked-face', 'operationId' => 'blockVerificationFace',
                 'request' => ['reason', 'reason_code'],
                 'response' => null,
+            ],
+            'verifications.setTestOutcome' => [
+                'method' => 'POST', 'path' => '/verifications/{verification}/test-outcome', 'operationId' => 'setTestVerificationOutcome',
+                'request' => ['status', 'reason'],
+                'response' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at'],
             ],
         ];
     }
