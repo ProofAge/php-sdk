@@ -15,7 +15,7 @@ All requests send `X-API-Key` and `X-HMAC-Signature` to `{base_url}/{version}/{p
 `X-ProofAge-Sdk: php/{Client::VERSION}` (a wrapper's `sdk_tokens` go first, e.g.
 `laravel/0.9.0 php/0.3.0`) and, unless one is set, `User-Agent: ProofAge-PHP/{version} (PHP {PHP_VERSION})`;
 neither is signed. The
-`base_url` config key is required and has no default — use `https://api.proofage.xyz`, with no
+`base_url` config key is required and has no default — use `https://api.proofage.net`, with no
 path; `version` defaults to `v1`.
 
 ## Auth / HMAC
@@ -210,7 +210,7 @@ bytes, treat `document` as optional (a body sent before it existed lacks it, and
 
 This contract is drift-tested against `resources/openapi.json` via `tests/ApiContractTest.php`,
 so it stays aligned with the API. Maintainers refreshing it after an API change: run
-`composer run sync-spec` (copies the published spec from `https://docs.proofage.xyz/openapi.json`
+`composer run sync-spec` (copies the published spec from `https://docs.proofage.net/openapi.json`
 into `resources/`), then make `tests/ApiContractTest.php` pass by updating
 `tests/Support/ApiContractMap.php`, the `@param`/`@return` shapes in `src/Resources/`, and this
 file together. The checklist for carrying an API change to every client is

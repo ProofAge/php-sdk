@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "https://api.proofage.xyz/v1",
+      "url": "https://api.proofage.net/v1",
       "description": "API"
     }
   ],
@@ -231,7 +231,7 @@
                       "consent_accepted_at": null,
                       "created_at": "2026-03-19T12:00:00+00:00",
                       "updated_at": "2026-03-19T12:00:00+00:00",
-                      "url": "https://idv.proofage.xyz/v/eyJ..."
+                      "url": "https://idv.proofage.net/v/eyJ..."
                     }
                   ],
                   "properties": {
@@ -1122,12 +1122,12 @@
                         {
                           "id": "019de7a0-c11b-7373-9289-b0aa1ba08d13",
                           "type": "selfie",
-                          "url": "https://api.proofage.xyz/v1/verifications/019de7a0-c11b-7373-9289-b0aa1ba08d13/media/019de7a0-c11b-7373-9289-b0aa1ba08d13"
+                          "url": "https://api.proofage.net/v1/verifications/019de7a0-c11b-7373-9289-b0aa1ba08d13/media/019de7a0-c11b-7373-9289-b0aa1ba08d13"
                         },
                         {
                           "id": "019de7a0-c129-7259-8a08-bc10390ecbdb",
                           "type": "document_front",
-                          "url": "https://api.proofage.xyz/v1/verifications/019de7a0-c11b-7373-9289-b0aa1ba08d13/media/019de7a0-c129-7259-8a08-bc10390ecbdb"
+                          "url": "https://api.proofage.net/v1/verifications/019de7a0-c11b-7373-9289-b0aa1ba08d13/media/019de7a0-c129-7259-8a08-bc10390ecbdb"
                         }
                       ],
                       "meta": {
@@ -1150,7 +1150,7 @@
                         {
                           "id": "019de7a0-c129-7259-8a08-bc10390ecbdb",
                           "type": "document_front",
-                          "url": "https://api.proofage.xyz/v1/verifications/019de7a0-c11b-7373-9289-b0aa1ba08d13/media/019de7a0-c129-7259-8a08-bc10390ecbdb"
+                          "url": "https://api.proofage.net/v1/verifications/019de7a0-c11b-7373-9289-b0aa1ba08d13/media/019de7a0-c129-7259-8a08-bc10390ecbdb"
                         }
                       ],
                       "meta": {
@@ -2089,7 +2089,7 @@
                       "id": 1,
                       "version": 2,
                       "text_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
-                      "url": "https://app.proofage.xyz/consent"
+                      "url": "https://app.proofage.net/consent"
                     }
                   ],
                   "properties": {

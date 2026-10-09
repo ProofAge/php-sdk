@@ -93,7 +93,7 @@ class VerificationResourceTest extends TestCase
         $client = $this->makeFakedClient([
             'api.test.com/v1/verifications' => FakeHttpClient::json(self::verification('ver_new', 'created', [
                 'redirect_url' => 'https://example.com/callback',
-                'url' => 'https://idv.proofage.xyz/v/eyJ0',
+                'url' => 'https://idv.proofage.net/v/eyJ0',
             ]), 201),
         ]);
 
@@ -106,7 +106,7 @@ class VerificationResourceTest extends TestCase
 
         $this->assertEquals('ver_new', $result['id']);
         $this->assertEquals('created', $result['status']);
-        $this->assertSame('https://idv.proofage.xyz/v/eyJ0', $result['url']);
+        $this->assertSame('https://idv.proofage.net/v/eyJ0', $result['url']);
         $this->assertSame('https://example.com/callback', $result['redirect_url']);
         $this->assertSame(['checked' => false, 'duplicate_count' => 0, 'duplicates' => []], $result['duplicate_check']);
         $this->assertNull($result['erasure']);

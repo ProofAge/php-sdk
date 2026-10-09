@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 /*
  * Copies the published OpenAPI spec into this package's bundled resources.
- * Source defaults to https://docs.proofage.xyz/openapi.json. PROOFAGE_OPENAPI_SRC overrides
+ * Source defaults to https://docs.proofage.net/openapi.json. PROOFAGE_OPENAPI_SRC overrides
  * it with another URL or a local file, for example the docs repo's openapi.json before it
  * is published (the docs repo regenerates it from the app with scripts/sync_openapi.py).
  */
 
-$src = getenv('PROOFAGE_OPENAPI_SRC') ?: 'https://docs.proofage.xyz/openapi.json';
+$src = getenv('PROOFAGE_OPENAPI_SRC') ?: 'https://docs.proofage.net/openapi.json';
 $dest = __DIR__.'/../resources/openapi.json';
 
 $isUrl = (bool) preg_match('#^https?://#', $src);

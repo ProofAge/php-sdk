@@ -10,7 +10,7 @@
         }
     ],
     "support": {
-        "docs": "https://docs.proofage.xyz/api-reference.html#/"
+        "docs": "https://docs.proofage.net/api-reference/overview"
     },
     "require": {
         "php": "^8.1",

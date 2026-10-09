@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.0 - 2026-10-09
+
+### Changed
+
+- ProofAge moved its hosts to `proofage.net`. The documented `base_url` is now
+  `https://api.proofage.net` (README, `AGENTS.md`). `https://api.proofage.xyz` keeps answering
+  with the same keys and signatures, so an existing integration needs no change. The SDK has no
+  default `base_url`, so there is no other behaviour change.
+- `composer run sync-spec` reads `https://docs.proofage.net/openapi.json` by default; the
+  `composer.json` docs link points at `https://docs.proofage.net/api-reference/overview`.
+- `resources/openapi.json` synced from the docs: its server and examples name `proofage.net`.
+
 ## 0.8.0 - 2026-10-09
 
 ### Added

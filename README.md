@@ -24,7 +24,7 @@ use ProofAge\Sdk\Client;
 $client = new Client([
     'api_key' => getenv('PROOFAGE_API_KEY'),
     'secret_key' => getenv('PROOFAGE_SECRET_KEY'),
-    'base_url' => 'https://api.proofage.xyz',
+    'base_url' => 'https://api.proofage.net',
 ]);
 
 $workspace = $client->workspace()->get();
@@ -40,7 +40,7 @@ says which SDK sent it: `X-ProofAge-Sdk: php/0.3.0` and `User-Agent: ProofAge-PH
 |---|---|---|
 | `api_key` | required | Workspace API key |
 | `secret_key` | required | Workspace secret key, used only to sign |
-| `base_url` | required | `https://api.proofage.xyz`; must have no path component |
+| `base_url` | required | `https://api.proofage.net`; must have no path component |
 | `version` | `v1` | API version segment |
 | `timeout` | `30` | Seconds per attempt; a positive integer (sub-second timeouts are not supported) |
 | `retry_attempts` | `3` | Attempts for interactive requests; see [Retries](#retries) |
@@ -414,8 +414,8 @@ never made), which is what allows a `POST` to be retried.
 use ProofAge\Sdk\Testing\FakeHttpClient;
 
 $fake = new FakeHttpClient([
-    'api.proofage.xyz/v1/workspace' => FakeHttpClient::json(['id' => 'ws_1', 'name' => 'Acme']),
-    'api.proofage.xyz/v1/verifications/*' => [               // a sequence
+    'api.proofage.net/v1/workspace' => FakeHttpClient::json(['id' => 'ws_1', 'name' => 'Acme']),
+    'api.proofage.net/v1/verifications/*' => [               // a sequence
         FakeHttpClient::json(['error' => ['code' => 'RATE_LIMIT']], 429, ['Retry-After' => '1']),
         FakeHttpClient::json(['id' => 'ver_1', 'status' => 'created']),
     ],
