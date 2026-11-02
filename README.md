@@ -1,6 +1,6 @@
 # ProofAge PHP SDK
 
-Framework-neutral PHP client for the [ProofAge](https://proofage.xyz) age and identity verification API:
+Framework-neutral PHP client for the [ProofAge](https://proofage.net) age and identity verification API:
 HMAC request signing, the resource methods, streaming media downloads, and inbound webhook
 verification. Runtime dependencies are `php ^8.1`, `ext-curl`, `ext-json` and the
 `psr/http-message` interfaces — nothing else, so it installs cleanly next to whatever your
