@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace ProofAge\Sdk\Tests\Resources;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ProofAge\Sdk\Client;
+use ProofAge\Sdk\Enums\ErasureReasonCode;
 use ProofAge\Sdk\Enums\VerificationStatus;
 use ProofAge\Sdk\Exceptions\ProofAgeException;
 use ProofAge\Sdk\Exceptions\TransportException;
@@ -713,6 +715,161 @@ class VerificationResourceTest extends TestCase
         $this->expectExceptionMessage('Verification ID is required');
 
         $client->verifications()->blockFace();
+    }
+
+    public function test_erase_personal_data_sends_a_signed_delete_and_returns_the_erased_verification(): void
+    {
+        $erasure = [
+            'erased_at' => '2026-11-06T12:00:00+00:00',
+            'scope' => 'personal_data',
+            'reason' => 'customer_request',
+            'requested_via' => 'customer',
+        ];
+        $client = $this->makeFakedClient([
+            'api.test.com/v1/verifications/ver_123/personal-data' => FakeHttpClient::json(self::verification('ver_123', 'approved', ['erasure' => $erasure])),
+        ]);
+
+        $result = $client->verifications('ver_123')->erasePersonalData([
+            'reason_code' => ErasureReasonCode::CUSTOMER_REQUEST->value,
+            'reason' => 'one-time public demo session',
+        ]);
+
+        $this->assertSame('ver_123', $result['id']);
+        $this->assertSame($erasure, $result['erasure']);
+
+        $expectedBody = json_encode(['reason_code' => 'customer_request', 'reason' => 'one-time public demo session']);
+        $this->fake->assertSentCount(1);
+        $sent = $this->fake->sent()[0];
+        $this->assertSame('DELETE', $sent->method);
+        $this->assertSame('https://api.test.com/v1/verifications/ver_123/personal-data', $sent->url);
+        $this->assertSame($expectedBody, $sent->body?->bytes);
+        $this->assertSame('application/json', $sent->header('Content-Type'));
+        $this->assertSame(
+            hash_hmac('sha256', 'DELETE/v1/verifications/ver_123/personal-data'.$expectedBody, 'test-secret-key'),
+            $sent->header('X-HMAC-Signature'),
+        );
+    }
+
+    public function test_erase_personal_data_is_not_retried_after_a_failed_erasure(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/v1/verifications/ver_123/personal-data' => FakeHttpClient::json(
+                ['error' => ['code' => 'ERASURE_FAILED', 'message' => 'The erasure could not be completed and nothing was erased. It is safe to retry.']],
+                503,
+                ['Retry-After' => '3'],
+            ),
+        ], ['retry_delay' => 0]);
+
+        try {
+            $client->verifications('ver_123')->erasePersonalData(['reason_code' => 'test_data']);
+            $this->fail('Expected a ProofAgeException.');
+        } catch (ProofAgeException $e) {
+            $this->assertSame(503, $e->getCode());
+            $this->assertSame('ERASURE_FAILED', $e->getErrorCode());
+            $this->assertSame('3', $e->getResponse()?->header('Retry-After'));
+        }
+
+        $this->fake->assertSentCount(1);
+    }
+
+    public function test_erase_personal_data_is_not_retried_after_a_timeout(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/v1/verifications/ver_123/personal-data' => FakeHttpClient::timeout(),
+        ], ['retry_delay' => 0]);
+
+        try {
+            $client->verifications('ver_123')->erasePersonalData(['reason_code' => 'test_data']);
+            $this->fail('Expected a TransportException.');
+        } catch (TransportException) {
+        }
+
+        $this->fake->assertSentCount(1);
+    }
+
+    public function test_erase_personal_data_is_retried_after_a_rate_limit(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/v1/verifications/ver_123/personal-data' => [
+                FakeHttpClient::json(['error' => ['code' => 'RATE_LIMIT', 'message' => 'Too many requests.']], 429, ['Retry-After' => '1']),
+                FakeHttpClient::json(self::verification('ver_123', 'declined')),
+            ],
+        ], ['retry_delay' => 0]);
+
+        $result = $client->verifications('ver_123')->erasePersonalData(['reason_code' => 'retention_policy']);
+
+        $this->assertSame('ver_123', $result['id']);
+        $this->fake->assertSentCount(2);
+    }
+
+    /** @return iterable<string, array{int, string}> */
+    public static function erasureRefusals(): iterable
+    {
+        yield 'still processing' => [409, 'VERIFICATION_PROCESSING'];
+        yield 'another erasure running' => [409, 'ERASURE_IN_PROGRESS'];
+        yield 'another workspace' => [403, 'VERIFICATION_MISMATCH'];
+    }
+
+    #[DataProvider('erasureRefusals')]
+    public function test_erase_personal_data_refusals_carry_their_code_and_are_not_retried(int $status, string $code): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/*' => FakeHttpClient::json(['error' => ['code' => $code, 'message' => 'Refused.']], $status, ['Retry-After' => '3']),
+        ], ['retry_delay' => 0]);
+
+        try {
+            $client->verifications('ver_123')->erasePersonalData(['reason_code' => 'data_subject_request']);
+            $this->fail('Expected a ProofAgeException.');
+        } catch (ProofAgeException $e) {
+            $this->assertSame($status, $e->getCode());
+            $this->assertSame($code, $e->getErrorCode());
+        }
+
+        $this->fake->assertSentCount(1);
+    }
+
+    public function test_erase_personal_data_of_a_verification_not_final_is_a_validation_exception(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/*' => FakeHttpClient::json(['error' => ['code' => 'VERIFICATION_NOT_FINAL', 'message' => 'A verification in the review status cannot be erased.']], 422),
+        ]);
+
+        try {
+            $client->verifications('ver_123')->erasePersonalData(['reason_code' => 'customer_request']);
+            $this->fail('Expected a ValidationException.');
+        } catch (ValidationException $e) {
+            $this->assertSame('VERIFICATION_NOT_FINAL', $e->getErrorCode());
+        }
+    }
+
+    public function test_erase_personal_data_without_a_valid_reason_is_a_validation_exception_with_the_fields(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/*' => FakeHttpClient::json([
+                'error' => ['code' => 'VALIDATION_ERROR', 'message' => 'The reason field is required when reason code is other.'],
+                'errors' => ['reason' => ['The reason field is required when reason code is other.']],
+            ], 422),
+        ]);
+
+        try {
+            $client->verifications('ver_123')->erasePersonalData(['reason_code' => ErasureReasonCode::OTHER->value]);
+            $this->fail('Expected a ValidationException.');
+        } catch (ValidationException $e) {
+            $this->assertSame('VALIDATION_ERROR', $e->getErrorCode());
+            $this->assertSame(['reason'], array_keys($e->getErrors()));
+        }
+    }
+
+    public function test_erase_personal_data_throws_when_no_id(): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/*' => FakeHttpClient::json([]),
+        ]);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Verification ID is required');
+
+        $client->verifications()->erasePersonalData(['reason_code' => 'test_data']);
     }
 
     public function test_list_sends_a_signed_get_without_a_query(): void

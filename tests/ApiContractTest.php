@@ -147,7 +147,7 @@ class ApiContractTest extends TestCase
 
         sort($checked);
         $this->assertSame(
-            ['verifications.acceptConsent', 'verifications.create', 'verifications.document', 'verifications.estimation', 'verifications.find', 'verifications.list', 'verifications.setTestOutcome', 'webhookSubscriptions.create', 'webhookSubscriptions.list', 'workspace.get', 'workspace.getConsent'],
+            ['verifications.acceptConsent', 'verifications.create', 'verifications.document', 'verifications.erasePersonalData', 'verifications.estimation', 'verifications.find', 'verifications.list', 'verifications.setTestOutcome', 'webhookSubscriptions.create', 'webhookSubscriptions.list', 'workspace.get', 'workspace.getConsent'],
             $checked,
             'The set of spec-describable response endpoints changed. If the generator improved, extend response parity coverage.'
         );
@@ -204,6 +204,7 @@ class ApiContractTest extends TestCase
         $this->assertStringNotContainsString('ProofAge\\Laravel\\', $doc);
         $this->assertStringContainsString('ProofAge\\Sdk\\Enums\\VerificationStatus', $doc);
         $this->assertStringContainsString('ProofAge\\Sdk\\Enums\\BlockFaceReasonCode', $doc);
+        $this->assertStringContainsString('ProofAge\\Sdk\\Enums\\ErasureReasonCode', $doc);
         $this->assertStringContainsString('ProofAge\\Sdk\\Enums\\WebhookReason', $doc);
     }
 

@@ -93,6 +93,12 @@ Response: `{ verification_id: string, attempt_id: string|null, age_threshold: { 
 Request: `{ reason_code?: string, reason?: string(<=1000) }`.
 Response: `204 No Content` (method returns `null`).
 
+### DELETE /verifications/{verification}/personal-data — `$client->verifications($id)->erasePersonalData($data)`
+Irreversibly erases the verification's personal data: images, recordings, document fields, analysis results and device data. The status, reason, dates, audit trail and the fact of the erasure stay. No webhook is sent. Afterwards `find()` carries `erasure: { erased_at, scope: "personal_data", reason, requested_via: "customer" }`, `document()` returns `null` fields and every media item with `url: null`, and the media download answers 404.
+Request: `{ reason_code: "data_subject_request"|"customer_request"|"retention_policy"|"test_data"|"other" (ProofAge\Sdk\Enums\ErasureReasonCode), reason?: string|null(<=1000) }`. `reason` is required when `reason_code` is `other`.
+Response: the find() shape. A repeat call on an erased verification answers `200` with it again and changes nothing.
+Only `approved`, `declined`, `abandoned` and `expired` verifications can be erased. Errors: `422 { error: { code: "VERIFICATION_NOT_FINAL", message } }` for any other status (`ValidationException`); `422 { error: { code: "VALIDATION_ERROR", message }, errors }` for a missing or unknown `reason_code` or `other` without a `reason` (`ValidationException`, `getErrors()` has the fields); `403 { error: { code: "VERIFICATION_MISMATCH", message } }` for another workspace's verification; `409 { error: { code: "VERIFICATION_PROCESSING" | "ERASURE_IN_PROGRESS", message } }` with `Retry-After: 3`: the decision was made a moment ago and the pipeline is finishing, or another erasure of it is running; `503 { error: { code: "ERASURE_FAILED", message } }` with `Retry-After: 3`: the storage deletes failed and were rolled back, nothing was erased, safe to call again. The SDK does not retry a 409 or a 503 (nor a 5xx or a timeout): call again after about 3 seconds. Limited to 60 calls a minute per workspace (a 429 is retried).
+
 ### POST /verifications/{verification}/test-outcome — `$client->verifications($id)->setTestOutcome($data)`
 Request: `{ status: "approved"|"declined"|"review"|"resubmission_requested", reason?: string|null(<=1000) }`. `reason` is a note kept with a `resubmission_requested` outcome in the verification's history, not the decision `reason` code.
 Response: the find() shape, with the new status.
@@ -119,11 +125,13 @@ Error: `404 { message: "Resource not found" }` when the id is not one of the wor
 `GET` and `DELETE` requests are retried (`retry_attempts`, default 3) after a transport failure, a 429, or a
 3xx/5xx; a `delete()` whose first attempt went through answers the retry with a 404. A `POST` is retried only when repeating it cannot make the server act twice: a connection
 failure before the request was sent (`TransportException::requestMayHaveBeenSent()` is false) or a
-429 carrying `Retry-After`. A 5xx or a timeout on a `POST` is thrown at once.
+429 carrying `Retry-After`. A 5xx or a timeout on a `POST` is thrown at once. `erasePersonalData()`
+is a `DELETE` retried as a `POST` is: a 409, a 503, any other 5xx and a timeout are thrown at once.
 
 ## Enums
 
 - `status`: one of `created`, `started`, `submitted`, `resubmission_requested`, `approved`, `declined`, `abandoned`, `expired`, `review`, `documents_required` — the `ProofAge\Sdk\Enums\VerificationStatus` cases. `documents_required` is reported by the API while the latest attempt waits for document photos; it is not stored on the verification. Map the field with `VerificationStatus::tryFrom()`, not `from()`, so a status added to the API later reads as `null` instead of throwing.
+- `reason_code` (request field on `erasePersonalData`, required): one of `data_subject_request` (the verified person asked for their data to be erased), `customer_request` (you are erasing it on your own initiative), `retention_policy` (your retention window elapsed), `test_data` (a test or synthetic session), `other` (explain in `reason`, which is then required) — the `ProofAge\Sdk\Enums\ErasureReasonCode` cases.
 - `reason_code` (request field on `blockFace`): one of `presentation_attack` (spoof: screen, print or mask), `fraudulent_document` (forged, edited, or not a real document), `scam_or_abuse` (identity may be genuine — blocked for behaviour on your platform), `underage`, `other` (explain in `reason`) — the `ProofAge\Sdk\Enums\BlockFaceReasonCode` cases. Optional over the API, mandatory in the ProofAge consoles: send it whenever a person made the decision, or the block cannot be told apart from an automated one in reporting.
 - `reason` (on `declined` / `resubmission_requested`): dotted codes from the server's reason catalog — illustrative examples: `aml.blocklist.face_match`, `document.face.mismatch`, `verification.age_threshold.failed`. `ProofAge\Sdk\Enums\WebhookReason` models only the AML blocklist codes; treat `reason` as an open string.
 
@@ -136,7 +144,8 @@ exception reads each:
 
 | Body | Sent for | `getMessage()` | `getErrorCode()` | `getErrorData()` |
 |---|---|---|---|---|
-| `{ error: { code, message } }` | most errors: 401, 403 `TEST_WORKSPACE_ONLY`, 404 `MEDIA_NOT_FOUND`, 422 on submit, 422 `INVALID_STATUS`, 422 `WEBHOOK_SUBSCRIPTION_LIMIT`, 429 `RATE_LIMIT` | `error.message` | `error.code` | the `error` object |
+| `{ error: { code, message } }` | most errors: 401, 403 `TEST_WORKSPACE_ONLY`, 404 `MEDIA_NOT_FOUND`, 422 on submit, 422 `INVALID_STATUS`, 422 `WEBHOOK_SUBSCRIPTION_LIMIT`, 429 `RATE_LIMIT`; on an erasure 403 `VERIFICATION_MISMATCH`, 409 `VERIFICATION_PROCESSING` / `ERASURE_IN_PROGRESS`, 422 `VERIFICATION_NOT_FINAL`, 503 `ERASURE_FAILED` | `error.message` | `error.code` | the `error` object |
+| `{ error: { code, message }, errors }` | 422 `VALIDATION_ERROR` on an erasure | `error.message` | `error.code` | the `error` object; `getErrors()` is `errors` |
 | `{ code, message, ... }` | 402 `PAYMENT_METHOD_REQUIRED`; upload quality errors: 422 `FACE_NOT_FOUND`, `MAX_ATTEMPTS_REACHED`, ..., 500 `VALIDATION_SERVICE_UNAVAILABLE` | `message` | `code` | the whole body |
 | `{ message, errors }` | 422 request validation | `message` | `null` | the whole body; `getErrors()` is `errors` |
 | `{ message }` | 403 access denied, 404 `Resource not found` | `message` | `null` | the whole body |

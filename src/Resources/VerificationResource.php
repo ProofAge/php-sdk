@@ -6,6 +6,7 @@ namespace ProofAge\Sdk\Resources;
 
 use ProofAge\Sdk\Client;
 use ProofAge\Sdk\Enums\BlockFaceReasonCode;
+use ProofAge\Sdk\Enums\ErasureReasonCode;
 use ProofAge\Sdk\Enums\VerificationStatus;
 use ProofAge\Sdk\Http\Body\FilePart;
 use ProofAge\Sdk\Http\Response;
@@ -447,6 +448,66 @@ class VerificationResource
             'POST',
             "verifications/{$this->verificationId}/blocked-face",
             $data ?? []
+        );
+
+        return $response->json();
+    }
+
+    /**
+     * Irreversibly erase the verification's personal data: images, recordings, document
+     * fields, analysis results and device data. The status, reason, dates, audit trail and the
+     * fact of the erasure stay. No webhook is sent.
+     *
+     * Returns the verification in the shape find() returns, its `erasure` block filled
+     * (`scope` `personal_data`, `requested_via` `customer`); afterwards document() reads null
+     * fields and media without a `url`. Calling it again on an erased verification returns the
+     * verification again and changes nothing.
+     *
+     * `reason_code` is required: pass an {@see ErasureReasonCode} value. `reason` is free-text
+     * detail, at most 1000 characters, and is required when `reason_code` is `other`.
+     *
+     * Only `approved`, `declined`, `abandoned` and `expired` verifications can be erased: any
+     * other status throws a ValidationException with getErrorCode() VERIFICATION_NOT_FINAL, and
+     * a missing or unknown `reason_code`, or `other` without a `reason`, throws one with
+     * VALIDATION_ERROR. Another workspace's verification throws a ProofAgeException with
+     * getCode() 403 and getErrorCode() VERIFICATION_MISMATCH.
+     *
+     * A ProofAgeException with getCode() 409 (VERIFICATION_PROCESSING: the decision was made a
+     * moment ago and the pipeline is finishing; ERASURE_IN_PROGRESS: another erasure of it is
+     * running) or 503 (ERASURE_FAILED: the storage deletes failed, nothing was erased) means
+     * call again after the response's Retry-After, 3 seconds. The SDK does not repeat it: this
+     * DELETE is retried only after a 429 or a connection that never reached the server, as a
+     * POST is. 60 calls a minute per workspace.
+     *
+     * @param  array{reason_code: string, reason?: string|null}  $data
+     * @return array{
+     *     id: string,
+     *     external_id: string|null,
+     *     external_metadata: array<string, mixed>|null,
+     *     redirect_url: string|null,
+     *     status: string,
+     *     reason: string|null,
+     *     duplicate_check: array{
+     *         checked: bool,
+     *         duplicate_count: int,
+     *         duplicates: list<array{verification_id: string|null, external_id: string|null, similarity_score: float|null, verified_at: string|null}>
+     *     },
+     *     erasure: array{erased_at: string, scope: string, reason: string|null, requested_via: string|null}|null,
+     *     consent_accepted_at: string|null,
+     *     created_at: string,
+     *     updated_at: string
+     * }|null
+     */
+    public function erasePersonalData(array $data): ?array
+    {
+        if (! $this->verificationId) {
+            throw new \InvalidArgumentException('Verification ID is required');
+        }
+
+        $response = $this->client->makeNonIdempotentRequest(
+            'DELETE',
+            "verifications/{$this->verificationId}/personal-data",
+            $data
         );
 
         return $response->json();

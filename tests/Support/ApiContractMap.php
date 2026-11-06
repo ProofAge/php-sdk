@@ -93,6 +93,11 @@ class ApiContractMap
                 'request' => ['reason', 'reason_code'],
                 'response' => null,
             ],
+            'verifications.erasePersonalData' => [
+                'method' => 'DELETE', 'path' => '/verifications/{verification}/personal-data', 'operationId' => 'erasePersonalData',
+                'request' => ['reason_code', 'reason'],
+                'response' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at'],
+            ],
             'verifications.setTestOutcome' => [
                 'method' => 'POST', 'path' => '/verifications/{verification}/test-outcome', 'operationId' => 'setTestVerificationOutcome',
                 'request' => ['status', 'reason'],

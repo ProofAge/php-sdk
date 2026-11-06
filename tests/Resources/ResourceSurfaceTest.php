@@ -40,6 +40,7 @@ class ResourceSurfaceTest extends TestCase
         yield 'VerificationResource::downloadMediaTo' => [VerificationResource::class, 'downloadMediaTo', 'downloadMediaTo(string $mediaId, string $path): string'];
         yield 'VerificationResource::estimation' => [VerificationResource::class, 'estimation', 'estimation(): ?array'];
         yield 'VerificationResource::blockFace' => [VerificationResource::class, 'blockFace', 'blockFace(?array $data = null): ?array'];
+        yield 'VerificationResource::erasePersonalData' => [VerificationResource::class, 'erasePersonalData', 'erasePersonalData(array $data): ?array'];
         yield 'VerificationResource::setTestOutcome' => [VerificationResource::class, 'setTestOutcome', 'setTestOutcome(array $data): ?array'];
 
         yield 'WebhookSubscriptionResource::__construct' => [WebhookSubscriptionResource::class, '__construct', "__construct({$client} \$client)"];
