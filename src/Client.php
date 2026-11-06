@@ -134,6 +134,36 @@ class Client
      */
     public function makeRequest(string $method, string $endpoint, array $data = [], array $files = []): Response
     {
+        return $this->sendJsonOrMultipart($method, $endpoint, $data, $files, RetryPolicy::interactive($this->retryAttempts(), $this->retryDelay()));
+    }
+
+    /**
+     * makeRequest() for a call that must not be repeated blindly whatever its method: it is
+     * retried only as a POST is, after a 429 carrying Retry-After or a connection failure
+     * that never reached the server, and never after another status or a timeout.
+     *
+     * VerificationResource::erasePersonalData() sends its DELETE through it: a 5xx or a
+     * timeout there leaves the outcome unknown, and the API's 409 and 503 carry their own
+     * Retry-After for the caller to act on.
+     *
+     * @internal Called by the resources; not part of the preserved surface.
+     *
+     * @param  array<string, mixed>  $data  JSON body
+     *
+     * @throws ProofAgeException on a non-2xx response (AuthenticationException for 401, ValidationException for 422)
+     * @throws Exceptions\TransportException when every attempt failed below HTTP
+     */
+    public function makeNonIdempotentRequest(string $method, string $endpoint, array $data = []): Response
+    {
+        return $this->sendJsonOrMultipart($method, $endpoint, $data, [], RetryPolicy::interactive($this->retryAttempts(), $this->retryDelay(), idempotent: false));
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, string|\SplFileInfo|FilePart>  $files
+     */
+    private function sendJsonOrMultipart(string $method, string $endpoint, array $data, array $files, RetryPolicy $retryPolicy): Response
+    {
         [$url, $path] = $this->resolve($endpoint);
         $headers = ['Accept' => 'application/json'];
 
@@ -158,7 +188,7 @@ class Client
             $path,
             $headers,
             $body,
-            RetryPolicy::interactive($this->retryAttempts(), $this->retryDelay()),
+            $retryPolicy,
             $this->timeout(),
         );
 

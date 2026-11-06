@@ -44,11 +44,19 @@ final class RetryPolicy
      * sends before the request is handled. A 5xx or a timeout is not retried: the server
      * may already have created the verification, stored the upload or submitted it, and a
      * second attempt would do it again. The caller decides, knowing what it sent.
+     *
+     * $idempotent overrides what the method says. False gives a call the rules of a POST
+     * whatever its method: the erasure DELETE (/verifications/{id}/personal-data) is
+     * idempotent by HTTP, but a 5xx or a timeout there leaves the caller not knowing whether
+     * the data is gone, and the API answers 409 or 503 with its own Retry-After for the
+     * caller to act on, so it is not repeated blindly. Null (the default) goes by the method.
      */
-    public static function interactive(int $attempts = 3, int $delayMs = 1000): self
+    public static function interactive(int $attempts = 3, int $delayMs = 1000, ?bool $idempotent = null): self
     {
-        return new self($attempts, $delayMs, static function (Request $request, ?Response $response, ?TransportException $error): bool {
-            $idempotent = self::isIdempotent($request->method);
+        $override = $idempotent;
+
+        return new self($attempts, $delayMs, static function (Request $request, ?Response $response, ?TransportException $error) use ($override): bool {
+            $idempotent = $override ?? self::isIdempotent($request->method);
 
             if ($error !== null) {
                 return $idempotent || ! $error->requestMayHaveBeenSent();

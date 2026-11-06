@@ -87,6 +87,27 @@ class RetryPolicyTest extends TestCase
         $this->assertSame($expected, RetryPolicy::interactive()->shouldRetry($this->request('POST'), $this->response($status, $headers), null));
     }
 
+    /** @param array<string, string> $headers */
+    #[DataProvider('postStatuses')]
+    public function test_a_delete_marked_not_idempotent_is_retried_as_a_post_is(int $status, array $headers, bool $expected): void
+    {
+        $this->assertSame($expected, RetryPolicy::interactive(idempotent: false)->shouldRetry($this->request('DELETE'), $this->response($status, $headers), null));
+    }
+
+    public function test_a_delete_marked_not_idempotent_is_retried_after_a_transport_failure_only_when_it_was_never_sent(): void
+    {
+        $policy = RetryPolicy::interactive(idempotent: false);
+
+        $this->assertTrue($policy->shouldRetry($this->request('DELETE'), null, new TransportException('Connection refused', 7, requestMayHaveBeenSent: false)));
+        $this->assertFalse($policy->shouldRetry($this->request('DELETE'), null, new TransportException('Operation timed out', 28)), 'The server may already have acted on it.');
+    }
+
+    public function test_a_delete_goes_by_its_method_unless_told_otherwise(): void
+    {
+        $this->assertTrue(RetryPolicy::interactive()->shouldRetry($this->request('DELETE'), $this->response(503), null));
+        $this->assertTrue(RetryPolicy::interactive(idempotent: true)->shouldRetry($this->request('POST'), $this->response(503), null));
+    }
+
     public function test_idempotent_methods(): void
     {
         foreach (['GET', 'get', 'HEAD', 'OPTIONS', 'PUT', 'DELETE'] as $method) {
