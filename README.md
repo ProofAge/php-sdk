@@ -55,10 +55,11 @@ A `GET` gets another attempt after a transport failure, a 429, or any non-2xx st
 4xx (a 3xx or a 5xx).
 
 A `DELETE` (`webhookSubscriptions()->delete()`) is retried the same way; if the first attempt went
-through, the retry answers 404.
+through, the retry answers 404. `erasePersonalData()` is the exception: its `DELETE` is retried as a
+`POST` is, below.
 
 A `POST` — `create()`, `acceptConsent()`, `uploadMedia()`, `submit()`, `blockFace()`,
-`setTestOutcome()`, `webhookSubscriptions()->create()` — is retried
+`setTestOutcome()`, `webhookSubscriptions()->create()` — and the `DELETE` of `erasePersonalData()` are retried
 only when repeating it cannot make the server act twice: when the connection failed before the
 request was sent (DNS, connection refused, TLS handshake), or on a 429 that carries `Retry-After`.
 A 5xx or a timeout on a `POST` is thrown at once, because the server may already have created the
@@ -130,6 +131,26 @@ verification already in a final status answers 422 `INVALID_STATUS`.
 $client->verifications($id)->setTestOutcome(['status' => 'approved']);
 $client->verifications($id)->setTestOutcome(['status' => 'resubmission_requested', 'reason' => 'Blurry photo']);
 ```
+
+### Erasing personal data
+
+```php
+use ProofAge\Sdk\Enums\ErasureReasonCode;
+
+$verification = $client->verifications($id)->erasePersonalData([
+    'reason_code' => ErasureReasonCode::CUSTOMER_REQUEST->value,   // required
+    'reason' => 'one-time public demo session',                     // required with OTHER
+]);
+
+$verification['erasure'];   // ['erased_at' => ..., 'scope' => 'personal_data', 'reason' => ..., 'requested_via' => 'customer']
+```
+
+Removes the images, recordings, document fields, analysis results and device data of an `approved`,
+`declined`, `abandoned` or `expired` verification (any other status answers 422
+`VERIFICATION_NOT_FINAL`). The status, dates and the fact of the erasure stay, and no webhook is
+sent. A repeat call returns the verification again. A 409 (`VERIFICATION_PROCESSING`,
+`ERASURE_IN_PROGRESS`) or a 503 (`ERASURE_FAILED`, nothing erased) is not retried by the SDK: call
+again after the `Retry-After`, about 3 seconds.
 
 ### Webhook subscriptions
 

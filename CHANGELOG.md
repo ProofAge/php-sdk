@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `verifications($id)->erasePersonalData(['reason_code' => ..., 'reason' => ...])` calls
+  `DELETE /v1/verifications/{id}/personal-data`: it irreversibly erases the verification's images,
+  recordings, document fields, analysis results and device data, and returns the verification with
+  its `erasure` block. Only `approved`, `declined`, `abandoned` and `expired` verifications can be
+  erased; a repeat call returns the verification again.
+- `ProofAge\Sdk\Enums\ErasureReasonCode` (`data_subject_request`, `customer_request`,
+  `retention_policy`, `test_data`, `other`) names the required `reason_code`; `other` needs a
+  `reason`.
+- `RetryPolicy::interactive()` takes `idempotent`, which overrides what the method says. The
+  erasure `DELETE` uses `false`: it is retried as a `POST` is (a 429 with `Retry-After`, a
+  connection that never reached the server), never after its 409, its 503 `ERASURE_FAILED`, another
+  5xx or a timeout. Other `DELETE` requests are retried as before.
+- `resources/openapi.json` synced from the docs.
+
 ## 0.9.1 - 2026-11-02
 
 ### Changed
