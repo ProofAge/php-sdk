@@ -231,7 +231,7 @@
                       "consent_accepted_at": null,
                       "created_at": "2026-03-19T12:00:00+00:00",
                       "updated_at": "2026-03-19T12:00:00+00:00",
-                      "url": "https://idv.proofage.net/v/eyJ..."
+                      "url": "https://idv.proofage.net/q/AB12cd34Ef"
                     }
                   ],
                   "properties": {
@@ -1460,6 +1460,376 @@
         }
       }
     },
+    "/verifications/{verification}/personal-data": {
+      "delete": {
+        "operationId": "erasePersonalData",
+        "description": "Irreversibly removes the images, recordings, document fields, analysis results and device data\nof a verification, as the console does. The status, reason, dates, audit trail and the fact of the\nerasure stay: afterwards the verification carries an `erasure` block, its document fields read as\n`null` and its media have no `url`. No webhook is sent.\n\nOnly `approved`, `declined`, `abandoned` and `expired` verifications can be erased; the others may\nstill be reviewed, deduplicated or resubmitted. Repeating the call on an erased verification answers\n200 again and changes nothing. Send `reason_code` (`data_subject_request`, `customer_request`,\n`retention_policy`, `test_data` or `other`) and, for `other`, a `reason`. Limited to 60 calls a\nminute per workspace.",
+        "summary": "Erase a verification's personal data",
+        "tags": [
+          "Verification"
+        ],
+        "parameters": [
+          {
+            "name": "verification",
+            "in": "path",
+            "required": true,
+            "description": "The verification ID",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ErasePersonalDataRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The verification, as Get verification status answers, now with its `erasure` block. Also the answer to a repeat call on an erased verification.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "id": "550e8400-e29b-41d4-a716-446655440000",
+                      "external_id": null,
+                      "external_metadata": null,
+                      "redirect_url": "https://example.com/callback",
+                      "status": "approved",
+                      "reason": null,
+                      "duplicate_check": {
+                        "checked": false,
+                        "duplicate_count": 0,
+                        "duplicates": []
+                      },
+                      "erasure": {
+                        "erased_at": "2026-11-06T12:00:00+00:00",
+                        "scope": "personal_data",
+                        "reason": "customer_request",
+                        "requested_via": "customer"
+                      },
+                      "consent_accepted_at": "2026-11-06T11:58:00+00:00",
+                      "created_at": "2026-11-06T11:57:00+00:00",
+                      "updated_at": "2026-11-06T12:00:00+00:00"
+                    }
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "external_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "external_metadata": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "redirect_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "duplicate_check": {
+                      "type": "object",
+                      "properties": {
+                        "checked": {
+                          "type": "boolean"
+                        },
+                        "duplicate_count": {
+                          "type": "integer"
+                        },
+                        "duplicates": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "verification_id": {
+                                "type": "string"
+                              },
+                              "external_id": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "similarity_score": {
+                                "type": "number"
+                              },
+                              "verified_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "verification_id",
+                              "external_id",
+                              "similarity_score",
+                              "verified_at"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "checked",
+                        "duplicate_count",
+                        "duplicates"
+                      ]
+                    },
+                    "erasure": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "erased_at": {
+                          "type": "string"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "requested_via": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "erased_at",
+                        "scope",
+                        "reason",
+                        "requested_via"
+                      ]
+                    },
+                    "consent_accepted_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "updated_at": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "external_id",
+                    "external_metadata",
+                    "redirect_url",
+                    "status",
+                    "reason",
+                    "duplicate_check",
+                    "erasure",
+                    "consent_accepted_at",
+                    "created_at",
+                    "updated_at"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ModelNotFoundException"
+          },
+          "422": {
+            "description": "The verification is not `approved`, `declined`, `abandoned` or `expired` (`VERIFICATION_NOT_FINAL`), or `reason_code` is missing or unknown, or `reason` is missing for `other` (`VALIDATION_ERROR`, with `errors` by field).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "VERIFICATION_NOT_FINAL",
+                        "message": "A verification in the review status cannot be erased. Only approved, declined, abandoned and expired verifications can."
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "errors": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The verification belongs to another workspace (`VERIFICATION_MISMATCH`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "VERIFICATION_MISMATCH",
+                        "message": "Access denied to this verification."
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The verification reached its final status a moment ago and the pipeline is still finishing (`VERIFICATION_PROCESSING`), or another erasure of it is running (`ERASURE_IN_PROGRESS`). Retry after the number of seconds in the `Retry-After` response header, 3.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "VERIFICATION_PROCESSING",
+                        "message": "The verification is still being finalised. Retry shortly."
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The storage deletes failed and the erasure was rolled back: nothing was erased (`ERASURE_FAILED`). Safe to retry after the number of seconds in the `Retry-After` response header, 3.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "ERASURE_FAILED",
+                        "message": "The erasure could not be completed and nothing was erased. It is safe to retry."
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/verifications/{verification}/test-outcome": {
       "post": {
         "operationId": "setTestVerificationOutcome",
@@ -2163,6 +2533,39 @@
           "other"
         ],
         "title": "BlockedFaceReasonCode"
+      },
+      "ErasePersonalDataRequest": {
+        "type": "object",
+        "properties": {
+          "reason_code": {
+            "description": "Why the erasure is asked for: `data_subject_request`, `customer_request`, `retention_policy`, `test_data` or `other`. `other` needs a `reason`.",
+            "$ref": "#/components/schemas/ErasureReasonCode"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Free text stored with the erasure, at most 1000 characters.",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "reason_code"
+        ],
+        "title": "ErasePersonalDataRequest"
+      },
+      "ErasureReasonCode": {
+        "type": "string",
+        "description": "Why an erasure is asked for: `data_subject_request` (the verified person asked), `customer_request` (the customer's own initiative), `retention_policy` (a retention window elapsed), `test_data` (a test or synthetic session) or `other`, which needs a `reason`.\n",
+        "enum": [
+          "data_subject_request",
+          "customer_request",
+          "retention_policy",
+          "test_data",
+          "other"
+        ],
+        "title": "ErasureReasonCode"
       },
       "SetTestVerificationOutcomeRequest": {
         "type": "object",
