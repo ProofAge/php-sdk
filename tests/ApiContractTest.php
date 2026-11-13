@@ -153,6 +153,33 @@ class ApiContractTest extends TestCase
         );
     }
 
+    public function test_the_reauth_object_of_a_face_re_verification_is_described_as_the_sdk_documents_it(): void
+    {
+        $fields = ['reference_verification_id', 'reference_verified_at', 'similarity'];
+        $schema = $this->spec['paths']['/verifications/{verification}']['get']['responses']['200']['content']['application/json']['schema'];
+
+        $this->assertSame('object', $schema['properties']['reauth']['type']);
+        $this->assertSame($fields, array_keys($schema['properties']['reauth']['properties']));
+        $this->assertNotContains('reauth', $schema['required'], 'reauth is on re-verifications only, so it is never required.');
+
+        $webhook = $this->spec['webhooks']['verificationDecision']['post']['requestBody']['content']['application/json']['schema'];
+        $this->assertSame($fields, array_keys($webhook['properties']['reauth']['properties']));
+    }
+
+    public function test_the_refusals_of_a_face_re_verification_are_documented_on_create(): void
+    {
+        $responses = $this->spec['paths']['/verifications']['post']['responses'];
+
+        $this->assertStringContainsString('MISSING_SIGNATURE', json_encode($responses['401']));
+        $this->assertStringContainsString('REFERENCE_VERIFICATION_NOT_FOUND', json_encode($responses['404']));
+
+        foreach (['REFERENCE_NOT_APPROVED', 'REFERENCE_NOT_SUPPORTED', 'REFERENCE_UNAVAILABLE'] as $code) {
+            $this->assertStringContainsString($code, json_encode($responses['422']));
+        }
+
+        $this->assertStringContainsString('REAUTH_RATE_LIMITED', json_encode($responses['429']));
+    }
+
     public function test_endpoints_the_sdk_treats_as_bodiless_have_no_json_success_body_in_the_spec(): void
     {
         $bodiless = [];

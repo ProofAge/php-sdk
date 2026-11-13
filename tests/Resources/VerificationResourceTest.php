@@ -121,6 +121,62 @@ class VerificationResourceTest extends TestCase
         });
     }
 
+    public function test_create_sends_the_reference_of_a_face_re_verification_and_returns_its_reauth_block(): void
+    {
+        $reauth = ['reference_verification_id' => 'ver_kyc', 'reference_verified_at' => '2026-05-02T10:14:00+00:00', 'similarity' => null];
+        $client = $this->makeFakedClient([
+            'api.test.com/v1/verifications' => FakeHttpClient::json(self::verification('ver_re', 'created', [
+                'reauth' => $reauth,
+                'url' => 'https://idv.proofage.net/q/AB12cd34Ef',
+            ]), 201),
+        ]);
+
+        $result = $client->verifications()->create(['external_id' => 'student-42', 'reference_verification_id' => 'ver_kyc']);
+
+        $this->assertSame($reauth, $result['reauth']);
+        $this->assertSame(
+            ['external_id' => 'student-42', 'reference_verification_id' => 'ver_kyc'],
+            json_decode((string) $this->fake->sent()[0]->body?->bytes, true),
+        );
+        $this->assertNotNull($this->fake->sent()[0]->header('X-HMAC-Signature'));
+    }
+
+    /**
+     * @return array<string, array{0: int, 1: string, 2: class-string<ProofAgeException>}>
+     */
+    public static function reauthRefusals(): array
+    {
+        return [
+            'not found' => [404, 'REFERENCE_VERIFICATION_NOT_FOUND', ProofAgeException::class],
+            'not approved' => [422, 'REFERENCE_NOT_APPROVED', ValidationException::class],
+            'not supported' => [422, 'REFERENCE_NOT_SUPPORTED', ValidationException::class],
+            'unavailable' => [422, 'REFERENCE_UNAVAILABLE', ValidationException::class],
+            'rate limited' => [429, 'REAUTH_RATE_LIMITED', ProofAgeException::class],
+        ];
+    }
+
+    /**
+     * @param  class-string<ProofAgeException>  $exception
+     */
+    #[DataProvider('reauthRefusals')]
+    public function test_a_refused_face_re_verification_throws_with_its_code(int $status, string $code, string $exception): void
+    {
+        $client = $this->makeFakedClient([
+            'api.test.com/v1/verifications' => FakeHttpClient::json(['error' => ['code' => $code, 'message' => 'Refused.']], $status),
+        ]);
+
+        try {
+            $client->verifications()->create(['reference_verification_id' => 'ver_kyc']);
+            $this->fail('Expected an exception.');
+        } catch (ProofAgeException $e) {
+            $this->assertInstanceOf($exception, $e);
+            $this->assertSame($status, $e->getCode());
+            $this->assertSame($code, $e->getErrorCode());
+        }
+
+        $this->assertCount(1, $this->fake->sent(), 'A refusal is not retried.');
+    }
+
     public function test_find_sends_get_to_correct_endpoint(): void
     {
         $client = $this->makeFakedClient([

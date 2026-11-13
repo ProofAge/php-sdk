@@ -152,6 +152,31 @@ sent. A repeat call returns the verification again. A 409 (`VERIFICATION_PROCESS
 `ERASURE_IN_PROGRESS`) or a 503 (`ERASURE_FAILED`, nothing erased) is not retried by the SDK: call
 again after the `Retry-After`, about 3 seconds.
 
+### Face re-verification
+
+Check that the person in front of the camera is the one who passed an earlier ID verification, with a selfie only:
+
+```php
+$reverification = $client->verifications()->create([
+    'external_id' => 'student-42',
+    'reference_verification_id' => $kycVerificationId,   // an approved document verification of the same workspace
+]);
+
+// Send the person to $reverification['url']; the decision arrives by webhook.
+
+$verification = $client->verifications()->find($reverification['id']);
+$verification['reauth'];   // ['reference_verification_id' => ..., 'reference_verified_at' => ..., 'similarity' => ...]
+```
+
+The selfie is compared 1:1 with the reference's face and decided on the spot: `approved`, or `declined`
+with `reference.face.mismatch` (`reference.unavailable` if the reference was erased in the meantime).
+It is not billed, the person takes it in the hosted page (the headless consent, media and submit calls
+answer 409 `REAUTH_HOSTED_ONLY`), and `reauth` is on re-verifications only. A refusal throws:
+404 `REFERENCE_VERIFICATION_NOT_FOUND`, 422 `REFERENCE_NOT_APPROVED`, `REFERENCE_NOT_SUPPORTED` or
+`REFERENCE_UNAVAILABLE` (a `ValidationException`), 429 `REAUTH_RATE_LIMITED` (more than 10 for one
+reference in 24 hours; it does not clear within seconds and is not retried). See the
+[Face re-verification guide](https://docs.proofage.net/integration/face-reverification).
+
 ### Webhook subscriptions
 
 REST hooks (Zapier and the like) subscribe a URL to the decision webhooks, in addition to the

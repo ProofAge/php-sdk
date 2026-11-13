@@ -92,6 +92,44 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "The verification is a face re-verification, which is taken in the hosted page only (`REAUTH_HOSTED_ONLY`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "REAUTH_HOSTED_ONLY",
+                        "message": "This session is a face re-check and is taken in the hosted widget only."
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
           }
         }
       }
@@ -188,7 +226,7 @@
     "/verifications": {
       "post": {
         "operationId": "createVerification",
-        "description": "Creates a new verification session and returns a URL for the end-user to complete verification.",
+        "description": "Creates a new verification session and returns a URL for the end-user to complete verification.\n\nSend `reference_verification_id` to create a face re-verification instead: a selfie-only session\nthat compares the person's face with the one from an earlier approved document verification of the\nsame workspace and decides on its own. The request must be HMAC-signed, a re-verification is not\nbilled, and it is taken in the hosted page the returned `url` opens. Its responses and webhooks carry\na `reauth` object; ordinary sessions have none. See the Face re-verification guide.",
         "summary": "Create a verification session",
         "tags": [
           "Verification"
@@ -204,7 +242,67 @@
         },
         "responses": {
           "422": {
-            "$ref": "#/components/responses/ValidationException"
+            "description": "A field is invalid (`message` and `errors` by field), or the reference verification cannot be re-checked: it is not `approved` (`REFERENCE_NOT_APPROVED`), it is not a document verification (`REFERENCE_NOT_SUPPORTED`), or it holds no face to compare with because it was erased or its face data was deleted at the end of its retention period (`REFERENCE_UNAVAILABLE`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "REFERENCE_NOT_APPROVED",
+                        "message": "The reference verification is not approved."
+                      }
+                    }
+                  ],
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        },
+                        "errors": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "required": [
+                        "message",
+                        "errors"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
           },
           "201": {
             "description": "The verification session, with the url the person opens to complete it.",
@@ -358,6 +456,34 @@
                     "updated_at": {
                       "type": "string"
                     },
+                    "reauth": {
+                      "type": "object",
+                      "properties": {
+                        "reference_verification_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "reference_verified_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "similarity": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "reference_verification_id",
+                        "reference_verified_at",
+                        "similarity"
+                      ]
+                    },
                     "url": {
                       "type": "string"
                     }
@@ -421,6 +547,120 @@
                     "free_verifications_remaining",
                     "trial_ends_at",
                     "trial_active"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The request creates a face re-verification (`reference_verification_id`) and is not HMAC-signed (`MISSING_SIGNATURE`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "MISSING_SIGNATURE",
+                        "message": "X-HMAC-Signature header is required"
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The reference verification does not exist in this workspace (`REFERENCE_VERIFICATION_NOT_FOUND`). The answer is the same when it exists in another workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "REFERENCE_VERIFICATION_NOT_FOUND",
+                        "message": "The reference verification was not found."
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "More than 10 face re-verifications were created against this reference verification in the last 24 hours (`REAUTH_RATE_LIMITED`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "REAUTH_RATE_LIMITED",
+                        "message": "Too many re-checks for this reference verification in 24 hours."
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
                   ]
                 }
               }
@@ -635,6 +875,34 @@
                           },
                           "updated_at": {
                             "type": "string"
+                          },
+                          "reauth": {
+                            "type": "object",
+                            "properties": {
+                              "reference_verification_id": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "reference_verified_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "similarity": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "reference_verification_id",
+                              "reference_verified_at",
+                              "similarity"
+                            ]
                           }
                         },
                         "required": [
@@ -737,6 +1005,44 @@
           },
           "422": {
             "$ref": "#/components/responses/ValidationException"
+          },
+          "409": {
+            "description": "The verification is a face re-verification, which is taken in the hosted page only (`REAUTH_HOSTED_ONLY`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "REAUTH_HOSTED_ONLY",
+                        "message": "This session is a face re-check and is taken in the hosted widget only."
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
           }
         }
       }
@@ -744,7 +1050,7 @@
     "/verifications/{verification}": {
       "get": {
         "operationId": "getVerification",
-        "description": "Retrieves the current state of a verification session including its status and decision reason.",
+        "description": "Retrieves the current state of a verification session including its status and decision reason.\nA face re-verification also carries a `reauth` object with the reference verification, its date and\nthe similarity of the faces; no other session has one.",
         "summary": "Get verification status",
         "tags": [
           "Verification"
@@ -794,6 +1100,28 @@
                       "consent_accepted_at": "2026-03-19T12:01:00+00:00",
                       "created_at": "2026-03-19T12:00:00+00:00",
                       "updated_at": "2026-03-19T12:05:00+00:00"
+                    },
+                    {
+                      "id": "8a3f4c1e-5b7d-4e2a-9c61-0d2f7e9b1a34",
+                      "external_id": "student-42",
+                      "external_metadata": null,
+                      "redirect_url": "https://example.com/callback",
+                      "status": "approved",
+                      "reason": null,
+                      "duplicate_check": {
+                        "checked": false,
+                        "duplicate_count": 0,
+                        "duplicates": []
+                      },
+                      "erasure": null,
+                      "consent_accepted_at": "2026-11-13T09:01:00+00:00",
+                      "created_at": "2026-11-13T09:00:00+00:00",
+                      "updated_at": "2026-11-13T09:02:00+00:00",
+                      "reauth": {
+                        "reference_verification_id": "550e8400-e29b-41d4-a716-446655440000",
+                        "reference_verified_at": "2026-05-02T10:14:00+00:00",
+                        "similarity": 0.83
+                      }
                     }
                   ],
                   "properties": {
@@ -919,6 +1247,34 @@
                     },
                     "updated_at": {
                       "type": "string"
+                    },
+                    "reauth": {
+                      "type": "object",
+                      "properties": {
+                        "reference_verification_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "reference_verified_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "similarity": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "reference_verification_id",
+                        "reference_verified_at",
+                        "similarity"
+                      ]
                     }
                   },
                   "required": [
@@ -1414,6 +1770,44 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "The verification is a face re-verification, which is taken in the hosted page only (`REAUTH_HOSTED_ONLY`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "REAUTH_HOSTED_ONLY",
+                        "message": "This session is a face re-check and is taken in the hosted widget only."
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
           }
         }
       }
@@ -1644,6 +2038,34 @@
                     },
                     "updated_at": {
                       "type": "string"
+                    },
+                    "reauth": {
+                      "type": "object",
+                      "properties": {
+                        "reference_verification_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "reference_verified_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "similarity": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "reference_verification_id",
+                        "reference_verified_at",
+                        "similarity"
+                      ]
                     }
                   },
                   "required": [
@@ -1833,7 +2255,7 @@
     "/verifications/{verification}/test-outcome": {
       "post": {
         "operationId": "setTestVerificationOutcome",
-        "description": "Test workspaces only: finishes a verification with the given status without a person going\nthrough the widget, so an integration's handling of each outcome can be tested end to end.\nA verification nobody has opened is moved through `started` and `submitted` first, as a\nperson's submission would move it, so the outcome is the only decision webhooks are sent for.\nWorks from `created`, `started`, `submitted`, `review` and `resubmission_requested`.\n\nAnswers with the verification, as Get verification status does.",
+        "description": "Test workspaces only: finishes a verification with the given status without a person going\nthrough the widget, so an integration's handling of each outcome can be tested end to end.\nA verification nobody has opened is moved through `started` and `submitted` first, as a\nperson's submission would move it, so the outcome is the only decision webhooks are sent for.\nWorks from `created`, `started`, `submitted`, `review` and `resubmission_requested`.\n\nAnswers with the verification, as Get verification status does. A test face re-verification is\ndecided the same way and carries a fixed, illustrative `reauth.similarity`: 0.9 for `approved`,\n0.3 for `declined`.",
         "summary": "Set a test outcome",
         "tags": [
           "Verification"
@@ -2009,6 +2431,34 @@
                     },
                     "updated_at": {
                       "type": "string"
+                    },
+                    "reauth": {
+                      "type": "object",
+                      "properties": {
+                        "reference_verification_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "reference_verified_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "similarity": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "reference_verification_id",
+                        "reference_verified_at",
+                        "similarity"
+                      ]
                     }
                   },
                   "required": [
@@ -2648,6 +3098,14 @@
             ],
             "description": "Free-form data kept on the session and not returned to integrations.",
             "additionalProperties": {}
+          },
+          "reference_verification_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Turns the session into a face re-verification: the ID of an approved, document-based verification of the same\nworkspace. The person takes a selfie only, and it is compared with the face of that verification. The request\nmust be HMAC-signed. Not billed."
           }
         },
         "title": "StoreVerificationRequest"
@@ -3367,6 +3825,35 @@
                       "fields"
                     ],
                     "description": "The same object `GET /v1/verifications/{id}/document` returns, without `media` and `meta`, read from the attempt that decided the verification. Identity (KYC) workspaces receive eleven `fields`; age verification workspaces receive `first_name`, `last_name`, `date_of_birth` and `document_number` only, and the other seven keys are absent. `null` means the field was not read, is not printed on that document, or no document was read at all (a facial age estimation that passed without an ID, a test workspace, a wallet check); `document` itself is never null. Dates are `YYYY-MM-DD` and countries ISO 3166-1 alpha-2 (`XK` for Kosovo); `type` and `gender` are open enums. Fields your team corrected show the corrected value. A resend or a manual retry carries the document as it is now; an automatic retry carries the body as first sent. After the person's data is erased, only `type` and `issuing_country` are kept. Always present on the workspace webhook; left out of a webhook subscription's deliveries unless it was created with `include_document_data`."
+                  },
+                  "reauth": {
+                    "type": "object",
+                    "description": "Present only when the verification is a face re-verification, created with `reference_verification_id`; ordinary verifications have no `reauth` key. It names the earlier verification the face was compared with. Nothing of that verification's document is included. The `document` object of a re-verification is there but every field in it is `null`, and the payload has no `fingerprint_signals`. Webhook subscriptions created with `POST /v1/webhook-subscriptions` do not receive face re-verifications; only the workspace webhook URL does. See the Face re-verification guide.",
+                    "properties": {
+                      "reference_verification_id": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "format": "uuid",
+                        "description": "The earlier approved document verification the face was compared with. `null` only if that verification has since been deleted."
+                      },
+                      "reference_verified_at": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "format": "date-time",
+                        "description": "When the reference verification was approved, ISO 8601."
+                      },
+                      "similarity": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "description": "How alike the two faces are, from 0 to 1; the session is approved when it reaches a threshold, currently 0.65. `null` when the face was never compared, for example when the liveness check failed first. In a test workspace it is fixed and illustrative: 0.9 for `approved`, 0.3 for `declined`."
+                      }
+                    }
                   },
                   "changed_fields": {
                     "type": "array",

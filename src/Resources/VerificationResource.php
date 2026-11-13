@@ -37,6 +37,15 @@ class VerificationResource
      * `fingerprint` and `page_url` are deprecated: the ProofAge widget sends them, they are not
      * part of the public API, and they will be removed from this shape in a future minor release.
      *
+     * `reference_verification_id` makes the session a face re-verification: the id of an approved,
+     * document-based verification of the same workspace. The person takes a selfie only, it is
+     * compared with the face of that verification and decided on the spot; not billed, taken in
+     * the hosted page `url` opens, and the request must be signed (the client signs every
+     * request). The response, find(), list() and the webhooks then carry a `reauth` array; any
+     * other verification has no `reauth` key. A refusal throws: 404 REFERENCE_VERIFICATION_NOT_FOUND,
+     * 422 REFERENCE_NOT_APPROVED, REFERENCE_NOT_SUPPORTED or REFERENCE_UNAVAILABLE (a
+     * ValidationException), 429 REAUTH_RATE_LIMITED.
+     *
      * `status` is one of the {@see VerificationStatus} values; read it with tryFrom().
      * `duplicate_check` lists the accounts whose face matched this one (`duplicate_count`
      * spans every match, the list may be shorter). `erasure` is null until the personal data
@@ -48,6 +57,7 @@ class VerificationResource
      *     external_id?: string,
      *     external_metadata?: array<string, mixed>,
      *     metadata?: array<string, mixed>,
+     *     reference_verification_id?: string,
      *     page_url?: string
      * }  $data
      * @return array{
@@ -66,6 +76,7 @@ class VerificationResource
      *     consent_accepted_at: string|null,
      *     created_at: string,
      *     updated_at: string,
+     *     reauth?: array{reference_verification_id: string|null, reference_verified_at: string|null, similarity: float|null},
      *     url: string
      * }|null
      */
@@ -94,7 +105,8 @@ class VerificationResource
      *     erasure: array{erased_at: string, scope: string, reason: string|null, requested_via: string|null}|null,
      *     consent_accepted_at: string|null,
      *     created_at: string,
-     *     updated_at: string
+     *     updated_at: string,
+     *     reauth?: array{reference_verification_id: string|null, reference_verified_at: string|null, similarity: float|null}
      * }|null
      */
     public function find(string $id): ?array
@@ -138,7 +150,8 @@ class VerificationResource
      *         erasure: array{erased_at: string, scope: string, reason: string|null, requested_via: string|null}|null,
      *         consent_accepted_at: string|null,
      *         created_at: string,
-     *         updated_at: string
+     *         updated_at: string,
+     *         reauth?: array{reference_verification_id: string|null, reference_verified_at: string|null, similarity: float|null}
      *     }>,
      *     next_cursor: string|null
      * }|null
@@ -170,7 +183,8 @@ class VerificationResource
      *     erasure: array{erased_at: string, scope: string, reason: string|null, requested_via: string|null}|null,
      *     consent_accepted_at: string|null,
      *     created_at: string,
-     *     updated_at: string
+     *     updated_at: string,
+     *     reauth?: array{reference_verification_id: string|null, reference_verified_at: string|null, similarity: float|null}
      * }|null
      */
     public function get(): ?array
@@ -495,7 +509,8 @@ class VerificationResource
      *     erasure: array{erased_at: string, scope: string, reason: string|null, requested_via: string|null}|null,
      *     consent_accepted_at: string|null,
      *     created_at: string,
-     *     updated_at: string
+     *     updated_at: string,
+     *     reauth?: array{reference_verification_id: string|null, reference_verified_at: string|null, similarity: float|null}
      * }|null
      */
     public function erasePersonalData(array $data): ?array
@@ -546,7 +561,8 @@ class VerificationResource
      *     erasure: array{erased_at: string, scope: string, reason: string|null, requested_via: string|null}|null,
      *     consent_accepted_at: string|null,
      *     created_at: string,
-     *     updated_at: string
+     *     updated_at: string,
+     *     reauth?: array{reference_verification_id: string|null, reference_verified_at: string|null, similarity: float|null}
      * }|null
      */
     public function setTestOutcome(array $data): ?array

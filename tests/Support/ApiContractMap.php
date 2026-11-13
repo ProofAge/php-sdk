@@ -42,8 +42,8 @@ class ApiContractMap
             ],
             'verifications.create' => [
                 'method' => 'POST', 'path' => '/verifications', 'operationId' => 'createVerification',
-                'request' => ['callback_url', 'external_id', 'external_metadata', 'metadata'],
-                'response' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at', 'url'],
+                'request' => ['callback_url', 'external_id', 'external_metadata', 'metadata', 'reference_verification_id'],
+                'response' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at', 'reauth', 'url'],
                 'responseStatus' => '201',
             ],
             'verifications.list' => [
@@ -51,12 +51,12 @@ class ApiContractMap
                 'request' => [],
                 'query' => ['status', 'external_id', 'limit', 'cursor'],
                 'response' => ['data', 'next_cursor'],
-                'responseItems' => ['data' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at']],
+                'responseItems' => ['data' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at', 'reauth']],
             ],
             'verifications.find' => [
                 'method' => 'GET', 'path' => '/verifications/{verification}', 'operationId' => 'getVerification',
                 'request' => [],
-                'response' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at'],
+                'response' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at', 'reauth'],
             ],
             'verifications.acceptConsent' => [
                 'method' => 'POST', 'path' => '/verifications/{verification}/consent', 'operationId' => 'acceptConsent',
@@ -96,12 +96,12 @@ class ApiContractMap
             'verifications.erasePersonalData' => [
                 'method' => 'DELETE', 'path' => '/verifications/{verification}/personal-data', 'operationId' => 'erasePersonalData',
                 'request' => ['reason_code', 'reason'],
-                'response' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at'],
+                'response' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at', 'reauth'],
             ],
             'verifications.setTestOutcome' => [
                 'method' => 'POST', 'path' => '/verifications/{verification}/test-outcome', 'operationId' => 'setTestVerificationOutcome',
                 'request' => ['status', 'reason'],
-                'response' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at'],
+                'response' => ['id', 'external_id', 'external_metadata', 'redirect_url', 'status', 'reason', 'duplicate_check', 'erasure', 'consent_accepted_at', 'created_at', 'updated_at', 'reauth'],
             ],
             'webhookSubscriptions.create' => [
                 'method' => 'POST', 'path' => '/webhook-subscriptions', 'operationId' => 'createWebhookSubscription',
