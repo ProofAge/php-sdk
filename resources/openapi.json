@@ -629,7 +629,7 @@
             }
           },
           "429": {
-            "description": "More than 10 face re-verifications were created against this reference verification in the last 24 hours (`REAUTH_RATE_LIMITED`).",
+            "description": "Ten face re-verifications were already created against this reference verification in the last 24 hours, so the 11th is refused (`REAUTH_RATE_LIMITED`).",
             "content": {
               "application/json": {
                 "schema": {
