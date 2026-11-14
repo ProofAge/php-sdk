@@ -165,7 +165,7 @@ $reverification = $client->verifications()->create([
 // Send the person to $reverification['url']; the decision arrives by webhook.
 
 $verification = $client->verifications()->find($reverification['id']);
-$verification['reauth'];   // ['reference_verification_id' => ..., 'reference_verified_at' => ..., 'similarity' => ...]
+$verification['reauth'];   // ['reference_verification_id' => ..., 'reference_verified_at' => ...]
 ```
 
 The selfie is compared 1:1 with the reference's face and decided on the spot: `approved`, or `declined`

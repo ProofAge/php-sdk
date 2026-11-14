@@ -76,7 +76,7 @@ class VerificationResource
      *     consent_accepted_at: string|null,
      *     created_at: string,
      *     updated_at: string,
-     *     reauth?: array{reference_verification_id: string|null, reference_verified_at: string|null, similarity: float|null},
+     *     reauth?: array{reference_verification_id: string|null, reference_verified_at: string|null},
      *     url: string
      * }|null
      */
@@ -106,7 +106,7 @@ class VerificationResource
      *     consent_accepted_at: string|null,
      *     created_at: string,
      *     updated_at: string,
-     *     reauth?: array{reference_verification_id: string|null, reference_verified_at: string|null, similarity: float|null}
+     *     reauth?: array{reference_verification_id: string|null, reference_verified_at: string|null}
      * }|null
      */
     public function find(string $id): ?array
@@ -151,7 +151,7 @@ class VerificationResource
      *         consent_accepted_at: string|null,
      *         created_at: string,
      *         updated_at: string,
-     *         reauth?: array{reference_verification_id: string|null, reference_verified_at: string|null, similarity: float|null}
+     *         reauth?: array{reference_verification_id: string|null, reference_verified_at: string|null}
      *     }>,
      *     next_cursor: string|null
      * }|null
@@ -184,7 +184,7 @@ class VerificationResource
      *     consent_accepted_at: string|null,
      *     created_at: string,
      *     updated_at: string,
-     *     reauth?: array{reference_verification_id: string|null, reference_verified_at: string|null, similarity: float|null}
+     *     reauth?: array{reference_verification_id: string|null, reference_verified_at: string|null}
      * }|null
      */
     public function get(): ?array
@@ -510,7 +510,7 @@ class VerificationResource
      *     consent_accepted_at: string|null,
      *     created_at: string,
      *     updated_at: string,
-     *     reauth?: array{reference_verification_id: string|null, reference_verified_at: string|null, similarity: float|null}
+     *     reauth?: array{reference_verification_id: string|null, reference_verified_at: string|null}
      * }|null
      */
     public function erasePersonalData(array $data): ?array
@@ -562,7 +562,7 @@ class VerificationResource
      *     consent_accepted_at: string|null,
      *     created_at: string,
      *     updated_at: string,
-     *     reauth?: array{reference_verification_id: string|null, reference_verified_at: string|null, similarity: float|null}
+     *     reauth?: array{reference_verification_id: string|null, reference_verified_at: string|null}
      * }|null
      */
     public function setTestOutcome(array $data): ?array

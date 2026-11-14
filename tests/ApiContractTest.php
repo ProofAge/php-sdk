@@ -155,7 +155,7 @@ class ApiContractTest extends TestCase
 
     public function test_the_reauth_object_of_a_face_re_verification_is_described_as_the_sdk_documents_it(): void
     {
-        $fields = ['reference_verification_id', 'reference_verified_at', 'similarity'];
+        $fields = ['reference_verification_id', 'reference_verified_at'];
         $schema = $this->spec['paths']['/verifications/{verification}']['get']['responses']['200']['content']['application/json']['schema'];
 
         $this->assertSame('object', $schema['properties']['reauth']['type']);

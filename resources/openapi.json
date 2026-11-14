@@ -470,18 +470,11 @@
                             "string",
                             "null"
                           ]
-                        },
-                        "similarity": {
-                          "type": [
-                            "number",
-                            "null"
-                          ]
                         }
                       },
                       "required": [
                         "reference_verification_id",
-                        "reference_verified_at",
-                        "similarity"
+                        "reference_verified_at"
                       ]
                     },
                     "url": {
@@ -890,18 +883,11 @@
                                   "string",
                                   "null"
                                 ]
-                              },
-                              "similarity": {
-                                "type": [
-                                  "number",
-                                  "null"
-                                ]
                               }
                             },
                             "required": [
                               "reference_verification_id",
-                              "reference_verified_at",
-                              "similarity"
+                              "reference_verified_at"
                             ]
                           }
                         },
@@ -1050,7 +1036,7 @@
     "/verifications/{verification}": {
       "get": {
         "operationId": "getVerification",
-        "description": "Retrieves the current state of a verification session including its status and decision reason.\nA face re-verification also carries a `reauth` object with the reference verification, its date and\nthe similarity of the faces; no other session has one.",
+        "description": "Retrieves the current state of a verification session including its status and decision reason.\nA face re-verification also carries a `reauth` object with the reference verification and its date; no\nother session has one. The decision is the `status` and, when declined, the `reason`.",
         "summary": "Get verification status",
         "tags": [
           "Verification"
@@ -1119,8 +1105,7 @@
                       "updated_at": "2026-11-13T09:02:00+00:00",
                       "reauth": {
                         "reference_verification_id": "550e8400-e29b-41d4-a716-446655440000",
-                        "reference_verified_at": "2026-05-02T10:14:00+00:00",
-                        "similarity": 0.83
+                        "reference_verified_at": "2026-05-02T10:14:00+00:00"
                       }
                     }
                   ],
@@ -1262,18 +1247,11 @@
                             "string",
                             "null"
                           ]
-                        },
-                        "similarity": {
-                          "type": [
-                            "number",
-                            "null"
-                          ]
                         }
                       },
                       "required": [
                         "reference_verification_id",
-                        "reference_verified_at",
-                        "similarity"
+                        "reference_verified_at"
                       ]
                     }
                   },
@@ -2053,18 +2031,11 @@
                             "string",
                             "null"
                           ]
-                        },
-                        "similarity": {
-                          "type": [
-                            "number",
-                            "null"
-                          ]
                         }
                       },
                       "required": [
                         "reference_verification_id",
-                        "reference_verified_at",
-                        "similarity"
+                        "reference_verified_at"
                       ]
                     }
                   },
@@ -2255,7 +2226,7 @@
     "/verifications/{verification}/test-outcome": {
       "post": {
         "operationId": "setTestVerificationOutcome",
-        "description": "Test workspaces only: finishes a verification with the given status without a person going\nthrough the widget, so an integration's handling of each outcome can be tested end to end.\nA verification nobody has opened is moved through `started` and `submitted` first, as a\nperson's submission would move it, so the outcome is the only decision webhooks are sent for.\nWorks from `created`, `started`, `submitted`, `review` and `resubmission_requested`.\n\nAnswers with the verification, as Get verification status does. A test face re-verification is\ndecided the same way and carries a fixed, illustrative `reauth.similarity`: 0.9 for `approved`,\n0.3 for `declined`.",
+        "description": "Test workspaces only: finishes a verification with the given status without a person going\nthrough the widget, so an integration's handling of each outcome can be tested end to end.\nA verification nobody has opened is moved through `started` and `submitted` first, as a\nperson's submission would move it, so the outcome is the only decision webhooks are sent for.\nWorks from `created`, `started`, `submitted`, `review` and `resubmission_requested`.\n\nAnswers with the verification, as Get verification status does. A test face re-verification is\ndecided the same way.",
         "summary": "Set a test outcome",
         "tags": [
           "Verification"
@@ -2446,18 +2417,11 @@
                             "string",
                             "null"
                           ]
-                        },
-                        "similarity": {
-                          "type": [
-                            "number",
-                            "null"
-                          ]
                         }
                       },
                       "required": [
                         "reference_verification_id",
-                        "reference_verified_at",
-                        "similarity"
+                        "reference_verified_at"
                       ]
                     }
                   },
@@ -3828,7 +3792,7 @@
                   },
                   "reauth": {
                     "type": "object",
-                    "description": "Present only when the verification is a face re-verification, created with `reference_verification_id`; ordinary verifications have no `reauth` key. It names the earlier verification the face was compared with. Nothing of that verification's document is included. The `document` object of a re-verification is there but every field in it is `null`, and the payload has no `fingerprint_signals`. Webhook subscriptions created with `POST /v1/webhook-subscriptions` do not receive face re-verifications; only the workspace webhook URL does. See the Face re-verification guide.",
+                    "description": "Present only when the verification is a face re-verification, created with `reference_verification_id`; ordinary verifications have no `reauth` key. It names the earlier verification the face was compared with. The decision (`status`, and `reason` when declined) is the answer: no score is published. Nothing of that verification's document is included. The `document` object of a re-verification is there but every field in it is `null`, and the payload has no `fingerprint_signals`. Webhook subscriptions created with `POST /v1/webhook-subscriptions` do not receive face re-verifications; only the workspace webhook URL does. See the Face re-verification guide.",
                     "properties": {
                       "reference_verification_id": {
                         "type": [
@@ -3845,13 +3809,6 @@
                         ],
                         "format": "date-time",
                         "description": "When the reference verification was approved, ISO 8601."
-                      },
-                      "similarity": {
-                        "type": [
-                          "number",
-                          "null"
-                        ],
-                        "description": "How alike the two faces are, from 0 to 1; the session is approved when it reaches a threshold, currently 0.65. `null` when the face was never compared, for example when the liveness check failed first. In a test workspace it is fixed and illustrative: 0.9 for `approved`, 0.3 for `declined`."
                       }
                     }
                   },

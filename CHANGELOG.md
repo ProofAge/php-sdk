@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Removed
+
+- **Breaking (0.x, a minor release):** `similarity` is no longer in the `reauth` array of a face
+  re-verification, in the API responses and in the webhook. The block holds
+  `reference_verification_id` and `reference_verified_at` only; trust the decision (`status`, and
+  `reason` `reference.face.mismatch` when declined). There is no replacement field, and a test
+  re-verification has no illustrative score either. Remove any read of `reauth['similarity']`.
+- `resources/openapi.json` synced from the docs.
+
 ## 0.11.0 - 2026-11-14
 
 ### Added

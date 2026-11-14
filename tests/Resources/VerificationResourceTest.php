@@ -123,7 +123,7 @@ class VerificationResourceTest extends TestCase
 
     public function test_create_sends_the_reference_of_a_face_re_verification_and_returns_its_reauth_block(): void
     {
-        $reauth = ['reference_verification_id' => 'ver_kyc', 'reference_verified_at' => '2026-05-02T10:14:00+00:00', 'similarity' => null];
+        $reauth = ['reference_verification_id' => 'ver_kyc', 'reference_verified_at' => '2026-05-02T10:14:00+00:00'];
         $client = $this->makeFakedClient([
             'api.test.com/v1/verifications' => FakeHttpClient::json(self::verification('ver_re', 'created', [
                 'reauth' => $reauth,
