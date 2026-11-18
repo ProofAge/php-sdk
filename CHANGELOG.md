@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `webhook_include_document_data` in the `workspace()->get()` array shape. When it is `false`,
+  webhooks to `webhook_url` carry no `document`, `fingerprint_signals` or
+  `manual_moderation.performed_by`, and no `data.updated` is sent there.
+- `resources/openapi.json` synced from the docs.
+
 ## 0.12.0 - 2026-11-14
 
 ### Removed

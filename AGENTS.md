@@ -40,7 +40,7 @@ path; `version` defaults to `v1`.
 
 ### GET /workspace — `$client->workspace()->get()`
 Request: none.
-Response: `{ id: string, name: string, flow_type: string, mode: string, age_mode: string|null, age_threshold: int|null, verification_type: string, redirect_url: string|null, webhook_url: string|null, allow_expired_documents: bool, allow_duplicate_accounts: bool }`
+Response: `{ id: string, name: string, flow_type: string, mode: string, age_mode: string|null, age_threshold: int|null, verification_type: string, redirect_url: string|null, webhook_url: string|null, webhook_include_document_data: bool, allow_expired_documents: bool, allow_duplicate_accounts: bool }`. `webhook_include_document_data: false` means webhooks to `webhook_url` leave out `document`, `fingerprint_signals` and `manual_moderation.performed_by`, and no `data.updated` is sent there.
 
 ### GET /consent — `$client->workspace()->getConsent()`
 Request: none.
@@ -171,7 +171,8 @@ active one. A subscription's deliveries are signed with the secret key that sign
 request while that key exists, and with the active one after it is deleted. A subscription
 delivery has the same headers and body, except that without `include_document_data` it leaves out
 `document`, `fingerprint_signals` and `manual_moderation.performed_by`, and only its `statuses` are
-sent. A delivery answered with `410 Gone` deletes the subscription.
+sent. The workspace webhook leaves out the same three when the workspace's
+`webhook_include_document_data` is false, and then gets no `data.updated`. A delivery answered with `410 Gone` deletes the subscription.
 
 Headers: `X-Auth-Client` (api key), `X-Timestamp` (unix seconds), `X-HMAC-Signature`
 (= hex HMAC-SHA256 of `{timestamp}.{rawJsonBody}` with the active secret key),
@@ -192,15 +193,15 @@ Body:
   "external_metadata": object|null,
   "reason": string|null,                       // only on resubmission_requested / declined
   "timestamp": string (ISO8601),
-  "document": { "type": string|null, "issuing_country": string|null, "issuing_subdivision": string|null, "fields": {...} },   // the array shape of document() without media; absent on a body sent before this existed and on a subscription delivery without include_document_data
+  "document": { "type": string|null, "issuing_country": string|null, "issuing_subdivision": string|null, "fields": {...} },   // the array shape of document() without media; absent on a body sent before this existed, on a subscription delivery without include_document_data, and when the workspace's webhook_include_document_data is false
   "changed_fields"?: string[],                 // only on data.updated: names of what the correction changed (document.fields keys, or type, issuing_country, issuing_subdivision), no values
   "reauth"?: { "reference_verification_id": string|null, "reference_verified_at": string|null },   // only on a face re-verification; its document fields are all null
   "duplicate_detected"?: true,                 // present only when a duplicate was found
   "duplicate_count"?: int,                     // with duplicate_detected: every match found
   "duplicate_of"?: { "verification_id": string, "external_id": string|null },   // the first match
-  "fingerprint_signals"?: { "ip_address"?, "ip_country_code"?, "ip_timezone"?, "device_timezone"?, ... },  // present only when signals were collected
+  "fingerprint_signals"?: { "ip_address"?, "ip_country_code"?, "ip_timezone"?, "device_timezone"?, ... },  // present only when signals were collected, and not when webhook_include_document_data is false
   "manual_moderation"?: { "action": "approve"|"decline", "reason": string, "source": string,
-                          "performed_by"?: string, "source_status"?: string|null, "source_reason"?: string|null }   // performed_by is absent on a subscription delivery without include_document_data
+                          "performed_by"?: string, "source_status"?: string|null, "source_reason"?: string|null }   // performed_by is absent on a subscription delivery without include_document_data, and when webhook_include_document_data is false
 }
 ```
 

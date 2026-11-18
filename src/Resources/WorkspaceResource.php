@@ -28,6 +28,7 @@ class WorkspaceResource
      *     verification_type: string,
      *     redirect_url: string|null,
      *     webhook_url: string|null,
+     *     webhook_include_document_data: bool,
      *     allow_expired_documents: bool,
      *     allow_duplicate_accounts: bool
      * }|null

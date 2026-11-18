@@ -33,7 +33,7 @@ class ApiContractMap
             'workspace.get' => [
                 'method' => 'GET', 'path' => '/workspace', 'operationId' => 'getWorkspace',
                 'request' => [],
-                'response' => ['id', 'name', 'flow_type', 'mode', 'age_mode', 'age_threshold', 'verification_type', 'redirect_url', 'webhook_url', 'allow_expired_documents', 'allow_duplicate_accounts'],
+                'response' => ['id', 'name', 'flow_type', 'mode', 'age_mode', 'age_threshold', 'verification_type', 'redirect_url', 'webhook_url', 'webhook_include_document_data', 'allow_expired_documents', 'allow_duplicate_accounts'],
             ],
             'workspace.getConsent' => [
                 'method' => 'GET', 'path' => '/consent', 'operationId' => 'getConsent',

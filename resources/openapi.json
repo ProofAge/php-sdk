@@ -3477,6 +3477,10 @@
               "null"
             ]
           },
+          "webhook_include_document_data": {
+            "type": "boolean",
+            "description": "Whether webhooks to `webhook_url` carry `document`, `fingerprint_signals` and\n`manual_moderation.performed_by`. When false, `data.updated` is not sent there either."
+          },
           "allow_expired_documents": {
             "type": "boolean"
           },
@@ -3494,6 +3498,7 @@
           "verification_type",
           "redirect_url",
           "webhook_url",
+          "webhook_include_document_data",
           "allow_expired_documents",
           "allow_duplicate_accounts"
         ],
@@ -3556,7 +3561,7 @@
     "verificationDecision": {
       "post": {
         "summary": "Verification status changed, or document data corrected",
-        "description": "ProofAge sends this request to the workspace's webhook URL each time a verification moves to `approved`, `declined`, `resubmission_requested`, `review`, `abandoned` or `expired`. One verification can therefore produce several events. The same request, with `event` set to `data.updated`, is also sent when someone on your team corrects the document fields the reader got wrong, from the console or the MCP server; `status` is then the verification's current status, unchanged. Dispatch on `event` first. Each webhook subscription created with `POST /v1/webhook-subscriptions` also receives the `status.updated` events for the statuses it asked for, never `data.updated`; unless it was created with `include_document_data`, its body leaves out `document`, `fingerprint_signals` and `manual_moderation.performed_by`. Verify `X-HMAC-Signature` before trusting the body: it is the hex HMAC-SHA256 of `{X-Timestamp}.{raw body}`, keyed with the workspace's active secret key, or for a subscription with the secret key that created it. Respond with any 2xx. A 408, 429 or 5xx response, or no response within 30 seconds, is retried after 5, 15 and 60 minutes. Redirects are not followed. A subscription whose URL answers 410 is deleted. See [Webhooks](/integration/webhooks).",
+        "description": "ProofAge sends this request to the workspace's webhook URL each time a verification moves to `approved`, `declined`, `resubmission_requested`, `review`, `abandoned` or `expired`. One verification can therefore produce several events. The same request, with `event` set to `data.updated`, is also sent when someone on your team corrects the document fields the reader got wrong, from the console or the MCP server; `status` is then the verification's current status, unchanged. Dispatch on `event` first. When the workspace has \"Include document data in webhooks\" turned off, its webhook URL receives the body a subscription without document data receives, and no `data.updated`. Each webhook subscription created with `POST /v1/webhook-subscriptions` also receives the `status.updated` events for the statuses it asked for, never `data.updated`; unless it was created with `include_document_data`, its body leaves out `document`, `fingerprint_signals` and `manual_moderation.performed_by`. Verify `X-HMAC-Signature` before trusting the body: it is the hex HMAC-SHA256 of `{X-Timestamp}.{raw body}`, keyed with the workspace's active secret key, or for a subscription with the secret key that created it. Respond with any 2xx. A 408, 429 or 5xx response, or no response within 30 seconds, is retried after 5, 15 and 60 minutes. Redirects are not followed. A subscription whose URL answers 410 is deleted. See [Webhooks](/integration/webhooks).",
         "parameters": [
           {
             "name": "X-HMAC-Signature",
@@ -3788,7 +3793,7 @@
                       "issuing_subdivision",
                       "fields"
                     ],
-                    "description": "The same object `GET /v1/verifications/{id}/document` returns, without `media` and `meta`, read from the attempt that decided the verification. Identity (KYC) workspaces receive eleven `fields`; age verification workspaces receive `first_name`, `last_name`, `date_of_birth` and `document_number` only, and the other seven keys are absent. `null` means the field was not read, is not printed on that document, or no document was read at all (a facial age estimation that passed without an ID, a test workspace, a wallet check); `document` itself is never null. Dates are `YYYY-MM-DD` and countries ISO 3166-1 alpha-2 (`XK` for Kosovo); `type` and `gender` are open enums. Fields your team corrected show the corrected value. A resend or a manual retry carries the document as it is now; an automatic retry carries the body as first sent. After the person's data is erased, only `type` and `issuing_country` are kept. Always present on the workspace webhook; left out of a webhook subscription's deliveries unless it was created with `include_document_data`."
+                    "description": "The same object `GET /v1/verifications/{id}/document` returns, without `media` and `meta`, read from the attempt that decided the verification. Identity (KYC) workspaces receive eleven `fields`; age verification workspaces receive `first_name`, `last_name`, `date_of_birth` and `document_number` only, and the other seven keys are absent. `null` means the field was not read, is not printed on that document, or no document was read at all (a facial age estimation that passed without an ID, a test workspace, a wallet check); `document` itself is never null. Dates are `YYYY-MM-DD` and countries ISO 3166-1 alpha-2 (`XK` for Kosovo); `type` and `gender` are open enums. Fields your team corrected show the corrected value. A resend or a manual retry carries the document as it is now; an automatic retry carries the body as first sent. After the person's data is erased, only `type` and `issuing_country` are kept. Present on the workspace webhook unless the workspace has \"Include document data in webhooks\" turned off (`webhook_include_document_data: false` on `GET /v1/workspace`); left out of a webhook subscription's deliveries unless it was created with `include_document_data`."
                   },
                   "reauth": {
                     "type": "object",
@@ -3845,7 +3850,7 @@
                   },
                   "fingerprint_signals": {
                     "type": "object",
-                    "description": "Optional device and network signals collected during the session. Treat it as informational; its fields may change. Left out of a webhook subscription's deliveries unless it was created with `include_document_data`.",
+                    "description": "Optional device and network signals collected during the session. Treat it as informational; its fields may change. Left out when the workspace has \"Include document data in webhooks\" turned off, and of a webhook subscription's deliveries unless it was created with `include_document_data`.",
                     "additionalProperties": {}
                   },
                   "manual_moderation": {
@@ -3890,7 +3895,7 @@
                             ]
                           }
                         },
-                        "description": "Who moderated. Left out of a webhook subscription's deliveries unless it was created with `include_document_data`."
+                        "description": "Who moderated. Left out when the workspace has \"Include document data in webhooks\" turned off, and of a webhook subscription's deliveries unless it was created with `include_document_data`."
                       },
                       "source_status": {
                         "type": [
