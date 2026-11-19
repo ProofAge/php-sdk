@@ -40,7 +40,7 @@ says which SDK sent it: `X-ProofAge-Sdk: php/0.3.0` and `User-Agent: ProofAge-PH
 |---|---|---|
 | `api_key` | required | Workspace API key |
 | `secret_key` | required | Workspace secret key, used only to sign |
-| `base_url` | required | `https://api.proofage.net`; must have no path component |
+| `base_url` | `https://api.proofage.net` | The API origin. A trailing `/v1` (the address the API reference prints) is ignored, since the client adds the version |
 | `version` | `v1` | API version segment |
 | `timeout` | `30` | Seconds per attempt; a positive integer (sub-second timeouts are not supported) |
 | `retry_attempts` | `3` | Attempts for interactive requests; see [Retries](#retries) |
