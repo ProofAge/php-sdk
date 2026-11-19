@@ -167,7 +167,18 @@ the same body) share one, and the API refuses the second with `401 REPLAYED_REQU
 SDK waits until the clock reaches the next whole second, signs the request again with a new `X-Timestamp`
 (everything else, the `Idempotency-Key` included, unchanged) and resends it **once**. That resend does not
 count against `retry_attempts`; a second `REPLAYED_REQUEST` is thrown as a `ProofAgeException`. A `GET` is never
-verified for replay, so it is never resent for it. Give two deliberate identical creates different bodies
+verified for replay, so it is never resent for it.
+
+Two more rules come from the timestamp. **Clock skew:** a host clock more than 300 seconds off the API's fails every
+call with `401 TIMESTAMP_OUT_OF_RANGE`. When that answer has a parseable `Date` header, the client takes the
+server's time from it (the offset is kept and used for every later request of that client), signs the request again
+and resends it **once**, any method, with the same `Idempotency-Key`, outside `retry_attempts`. Without a `Date`
+header, or on a second refusal, the `ProofAgeException` is thrown; fix the host clock. **Same second:** before any
+re-attempt of a non-`GET`/`HEAD` request (a retry, or either resend above) the SDK waits until the clock is past the
+timestamp of the previous attempt, so the re-attempt is never signed with the same bytes; that wait replaces the
+`retry_delay` pause when it is longer, it is not added to it. A `POST` is retried on a 5xx or a timeout only when
+the SDK itself set the `Idempotency-Key` (the two creates): a header a middleware adds to another request changes
+nothing. Give two deliberate identical creates different bodies
 (`external_id`) or send them a second apart if you want to avoid the one-second wait.
 
 ## Enums

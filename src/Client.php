@@ -10,6 +10,7 @@ use ProofAge\Sdk\Exceptions\ProofAgeException;
 use ProofAge\Sdk\Http\Body\FilePart;
 use ProofAge\Sdk\Http\Body\MultipartBody;
 use ProofAge\Sdk\Http\Body\RawBody;
+use ProofAge\Sdk\Http\Clock;
 use ProofAge\Sdk\Http\Curl\CurlHttpClient;
 use ProofAge\Sdk\Http\HttpClient;
 use ProofAge\Sdk\Http\Request;
@@ -103,8 +104,9 @@ class Client
         $this->validateConfig();
 
         $this->transport = $transport ?? new CurlHttpClient;
-        $this->sign = new SignMiddleware((string) $this->config['api_key'], new Signer((string) $this->config['secret_key']), $this->sdkIdentity());
-        $this->pipeline = new Pipeline($this->transport, $this->sign, new RetryMiddleware($sleep));
+        $clock = new Clock;
+        $this->sign = new SignMiddleware((string) $this->config['api_key'], new Signer((string) $this->config['secret_key']), $this->sdkIdentity(), $clock);
+        $this->pipeline = new Pipeline($this->transport, $this->sign, new RetryMiddleware($sleep, $clock));
     }
 
     public function workspace(): WorkspaceResource
@@ -227,6 +229,7 @@ class Client
             $body,
             $retryPolicy,
             $this->timeout(),
+            idempotencyKeyed: $extraHeaders !== [],
         );
 
         return $this->handleResponse($this->pipeline->send($request));

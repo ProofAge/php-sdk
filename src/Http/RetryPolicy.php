@@ -62,7 +62,8 @@ final class RetryPolicy
      * the data is gone, and the API answers 409 or 503 with its own Retry-After for the
      * caller to act on, so it is not repeated blindly. Null (the default) goes by the method.
      *
-     * A request that carries an Idempotency-Key is idempotent whatever its method: the API
+     * A request Client marked as carrying an Idempotency-Key ({@see Request::$idempotencyKeyed}; a header
+     * added by a middleware does not count, the API ignores the key on other endpoints) is idempotent whatever its method: the API
      * replays the first response for the same key and request, so a retry cannot create
      * twice. It then gets the rules of a GET, plus a retry of 409 IDEMPOTENCY_KEY_IN_PROGRESS
      * (the first attempt is still running), which waits out the response's Retry-After.
@@ -75,7 +76,7 @@ final class RetryPolicy
         $override = $idempotent;
 
         return new self($attempts, $delayMs, static function (Request $request, ?Response $response, ?TransportException $error) use ($override): bool {
-            $idempotent = $override ?? (self::isIdempotent($request->method) || $request->header(self::IDEMPOTENCY_KEY_HEADER) !== null);
+            $idempotent = $override ?? (self::isIdempotent($request->method) || $request->idempotencyKeyed);
 
             if ($error !== null) {
                 return $idempotent || ! $error->requestMayHaveBeenSent();
@@ -93,7 +94,7 @@ final class RetryPolicy
                 return $idempotent || $response->header('Retry-After') !== null;
             }
 
-            if ($response->status() === 409 && $idempotent && $request->header(self::IDEMPOTENCY_KEY_HEADER) !== null) {
+            if ($response->status() === 409 && $idempotent && $request->idempotencyKeyed) {
                 return $response->json('error.code') === self::IN_PROGRESS_CODE;
             }
 

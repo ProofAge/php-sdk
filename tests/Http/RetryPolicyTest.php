@@ -14,9 +14,9 @@ use ProofAge\Sdk\Stream\ResourceStream;
 
 class RetryPolicyTest extends TestCase
 {
-    private function request(string $method = 'GET'): Request
+    private function request(string $method = 'GET', bool $keyed = false): Request
     {
-        return new Request($method, 'https://api.test.com/v1/workspace', '/v1/workspace', [], null, RetryPolicy::download(), 30);
+        return new Request($method, 'https://api.test.com/v1/workspace', '/v1/workspace', [], null, RetryPolicy::download(), 30, idempotencyKeyed: $keyed);
     }
 
     /** @param array<string, string> $headers */
@@ -112,7 +112,7 @@ class RetryPolicyTest extends TestCase
 
     public function test_a_post_with_an_idempotency_key_is_retried_like_a_get(): void
     {
-        $keyed = $this->request('POST')->withHeader('Idempotency-Key', 'order-1');
+        $keyed = $this->request('POST', keyed: true)->withHeader('Idempotency-Key', 'order-1');
         $policy = RetryPolicy::interactive();
 
         $this->assertTrue($policy->shouldRetry($keyed, null, new TransportException('Operation timed out', 28)));
@@ -122,6 +122,17 @@ class RetryPolicyTest extends TestCase
         $this->assertTrue($policy->shouldRetry($keyed, $this->response(429, [], 'RATE_LIMIT'), null));
         $this->assertFalse($policy->shouldRetry($keyed, $this->response(422), null));
         $this->assertFalse($policy->shouldRetry($keyed, $this->response(200), null));
+    }
+
+    public function test_a_header_a_middleware_added_does_not_make_a_post_retryable(): void
+    {
+        // The API ignores Idempotency-Key everywhere but the two creates Client marks.
+        $headerOnly = $this->request('POST')->withHeader('Idempotency-Key', 'added-by-middleware');
+        $policy = RetryPolicy::interactive();
+
+        $this->assertFalse($policy->shouldRetry($headerOnly, $this->response(500), null));
+        $this->assertFalse($policy->shouldRetry($headerOnly, null, new TransportException('Operation timed out', 28)));
+        $this->assertFalse($policy->shouldRetry($headerOnly, $this->response(409, [], 'IDEMPOTENCY_KEY_IN_PROGRESS'), null));
     }
 
     public function test_a_post_without_a_key_keeps_the_post_rules(): void
@@ -137,7 +148,7 @@ class RetryPolicyTest extends TestCase
 
     public function test_a_409_is_retried_only_while_the_first_request_with_the_key_is_running(): void
     {
-        $keyed = $this->request('POST')->withHeader('Idempotency-Key', 'order-1');
+        $keyed = $this->request('POST', keyed: true)->withHeader('Idempotency-Key', 'order-1');
         $policy = RetryPolicy::interactive();
 
         $this->assertTrue($policy->shouldRetry($keyed, $this->response(409, ['Retry-After' => '1'], 'IDEMPOTENCY_KEY_IN_PROGRESS'), null));
@@ -147,7 +158,7 @@ class RetryPolicyTest extends TestCase
 
     public function test_marking_a_call_not_idempotent_wins_over_the_key(): void
     {
-        $keyed = $this->request('DELETE')->withHeader('Idempotency-Key', 'k');
+        $keyed = $this->request('DELETE', keyed: true)->withHeader('Idempotency-Key', 'k');
 
         $this->assertFalse(RetryPolicy::interactive(3, 1000, idempotent: false)->shouldRetry($keyed, $this->response(500), null));
     }

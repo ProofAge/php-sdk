@@ -20,6 +20,16 @@
   nothing was processed) is resent once after the clock reaches the next whole second, with a new
   `X-Timestamp` and signature and the same `Idempotency-Key`, whatever the retry policy says. It does not count
   against `retry_attempts`; a second `REPLAYED_REQUEST` is thrown. `RetryMiddleware` takes an optional clock.
+- Clock skew: a `401 TIMESTAMP_OUT_OF_RANGE` with a parseable `Date` header makes the client adopt the
+  server's time (an offset shared by all its later requests), sign again and resend once, any method, with
+  the same `Idempotency-Key` and outside `retry_attempts`. Without a `Date` header, or on a second refusal, it
+  throws as before.
+- Before any re-attempt of a non-`GET`/`HEAD` request (retry, replay resend or skew resend) the SDK waits until
+  the clock is past the previous attempt's timestamp second; one sleep, the longer of that and `retry_delay`.
+- The retry policy decides on a flag `Client` sets on the two creates (`Request::$idempotencyKeyed`), not on the
+  presence of an `Idempotency-Key` header, so a header added by a middleware to `submit()` or `uploadMedia()`
+  does not make them retryable on a 5xx. New `ProofAge\Sdk\Http\Clock`; `SignMiddleware` and
+  `RetryMiddleware` accept it (or a callable) as their clock.
 - Error codes `TIMESTAMP_OUT_OF_RANGE`, `TIMESTAMP_REQUIRED`, `REPLAYED_REQUEST`, `IDEMPOTENCY_KEY_INVALID`,
   `IDEMPOTENCY_KEY_REUSED` and `IDEMPOTENCY_KEY_IN_PROGRESS` are documented in `AGENTS.md`; they arrive
   through `getErrorCode()` like every other code.

@@ -25,6 +25,8 @@ final class Request
      * @param  int  $timeout  seconds
      * @param  string|null  $sink  stream the response body to this path
      * @param  bool  $stream  do not buffer the response body
+     * @param  bool  $idempotencyKeyed  set by Client for the creates that send an Idempotency-Key; the retry
+     *                                  policy goes by this flag, not by a header a middleware may add
      *
      * @throws \InvalidArgumentException for a header name that is not a token or a value
      *                                   containing CR, LF or NUL (see withHeader())
@@ -40,6 +42,7 @@ final class Request
         public readonly ?string $sink = null,
         public readonly bool $stream = false,
         public readonly int $attempt = 1,
+        public readonly bool $idempotencyKeyed = false,
     ) {
         $this->method = strtoupper($method);
 
@@ -64,32 +67,32 @@ final class Request
         $headers = $this->headersWithout($name);
         $headers[$name] = $value;
 
-        return new self($this->method, $this->url, $this->path, $headers, $this->body, $this->retryPolicy, $this->timeout, $this->sink, $this->stream, $this->attempt);
+        return new self($this->method, $this->url, $this->path, $headers, $this->body, $this->retryPolicy, $this->timeout, $this->sink, $this->stream, $this->attempt, $this->idempotencyKeyed);
     }
 
     public function withoutHeader(string $name): static
     {
-        return new self($this->method, $this->url, $this->path, $this->headersWithout($name), $this->body, $this->retryPolicy, $this->timeout, $this->sink, $this->stream, $this->attempt);
+        return new self($this->method, $this->url, $this->path, $this->headersWithout($name), $this->body, $this->retryPolicy, $this->timeout, $this->sink, $this->stream, $this->attempt, $this->idempotencyKeyed);
     }
 
     public function withBody(RawBody|MultipartBody|null $body): static
     {
-        return new self($this->method, $this->url, $this->path, $this->headers, $body, $this->retryPolicy, $this->timeout, $this->sink, $this->stream, $this->attempt);
+        return new self($this->method, $this->url, $this->path, $this->headers, $body, $this->retryPolicy, $this->timeout, $this->sink, $this->stream, $this->attempt, $this->idempotencyKeyed);
     }
 
     public function withUrl(string $url): static
     {
-        return new self($this->method, $url, $this->path, $this->headers, $this->body, $this->retryPolicy, $this->timeout, $this->sink, $this->stream, $this->attempt);
+        return new self($this->method, $url, $this->path, $this->headers, $this->body, $this->retryPolicy, $this->timeout, $this->sink, $this->stream, $this->attempt, $this->idempotencyKeyed);
     }
 
     public function withPath(string $path): static
     {
-        return new self($this->method, $this->url, $path, $this->headers, $this->body, $this->retryPolicy, $this->timeout, $this->sink, $this->stream, $this->attempt);
+        return new self($this->method, $this->url, $path, $this->headers, $this->body, $this->retryPolicy, $this->timeout, $this->sink, $this->stream, $this->attempt, $this->idempotencyKeyed);
     }
 
     public function withAttempt(int $attempt): static
     {
-        return new self($this->method, $this->url, $this->path, $this->headers, $this->body, $this->retryPolicy, $this->timeout, $this->sink, $this->stream, $attempt);
+        return new self($this->method, $this->url, $this->path, $this->headers, $this->body, $this->retryPolicy, $this->timeout, $this->sink, $this->stream, $attempt, $this->idempotencyKeyed);
     }
 
     /**
@@ -113,6 +116,7 @@ final class Request
             'sink' => $this->sink,
             'stream' => $this->stream,
             'attempt' => $this->attempt,
+            'idempotencyKeyed' => $this->idempotencyKeyed,
         ];
     }
 

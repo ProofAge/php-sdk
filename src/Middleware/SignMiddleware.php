@@ -9,6 +9,7 @@ use ProofAge\Sdk\Events\Redactor;
 use ProofAge\Sdk\Events\RequestEvent;
 use ProofAge\Sdk\Events\ResponseEvent;
 use ProofAge\Sdk\Exceptions\TransportException;
+use ProofAge\Sdk\Http\Clock;
 use ProofAge\Sdk\Http\Request;
 use ProofAge\Sdk\Http\Response;
 use ProofAge\Sdk\Http\SdkIdentity;
@@ -34,20 +35,19 @@ final class SignMiddleware
     /** @var list<callable(ErrorEvent): void> */
     private array $onError = [];
 
-    /** @var \Closure(): int */
-    private readonly \Closure $clock;
+    private readonly Clock $clock;
 
     /**
-     * @param  callable(): int|null  $clock  Unix time in seconds for X-Timestamp; defaults to time().
-     *                                       Tests inject a fixed one.
+     * @param  Clock|callable(): int|null  $clock  Unix time in seconds for X-Timestamp; defaults to time().
+     *                                             Client shares one Clock with RetryMiddleware; tests inject a fixed one.
      */
     public function __construct(
         #[\SensitiveParameter] private readonly string $apiKey,
         private readonly Signer $signer,
         private readonly ?SdkIdentity $identity = null,
-        ?callable $clock = null,
+        Clock|callable|null $clock = null,
     ) {
-        $this->clock = $clock === null ? time(...) : \Closure::fromCallable($clock);
+        $this->clock = Clock::from($clock);
     }
 
     /**
@@ -103,7 +103,7 @@ final class SignMiddleware
             $request = $this->identity->apply($request);
         }
 
-        $timestamp = (string) ($this->clock)();
+        $timestamp = (string) $this->clock->stamp();
 
         $signed = $request
             ->withHeader('X-API-Key', $this->apiKey)

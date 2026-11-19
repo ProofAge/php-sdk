@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use ProofAge\Sdk\Client;
 use ProofAge\Sdk\Exceptions\ProofAgeException;
 use ProofAge\Sdk\Http\Body\RawBody;
+use ProofAge\Sdk\Http\Clock;
 use ProofAge\Sdk\Http\Request;
 use ProofAge\Sdk\Http\Response;
 use ProofAge\Sdk\Http\RetryPolicy;
@@ -43,7 +44,7 @@ class ReplayedRequestTest extends TestCase
         $this->now = self::NOW;
         $this->waits = [];
         $fake = new FakeHttpClient(['*' => $responses]);
-        $clock = fn (): int => $this->now;
+        $clock = new Clock(fn (): int => $this->now);
         $sleep = function (int $microseconds): void {
             $this->waits[] = intdiv($microseconds, 1_000_000);
             $this->now += intdiv($microseconds, 1_000_000);
@@ -56,7 +57,7 @@ class ReplayedRequestTest extends TestCase
     {
         $body = $method === 'GET' ? null : new RawBody('{}');
 
-        return new Request($method, 'https://api.test.com/v1/verifications', '/v1/verifications', ['Idempotency-Key' => 'k-1'], $body, RetryPolicy::interactive($attempts, 0), 30);
+        return new Request($method, 'https://api.test.com/v1/verifications', '/v1/verifications', ['Idempotency-Key' => 'k-1'], $body, RetryPolicy::interactive($attempts, 0), 30, idempotencyKeyed: true);
     }
 
     public function test_a_replayed_post_is_resent_once_with_a_new_timestamp_and_signature_and_the_same_key(): void

@@ -88,6 +88,14 @@ whole second, signs it again with a new `X-Timestamp` and resends it once, keepi
 applies to every `POST` and `DELETE` whatever the retry rules above say, and does not count against
 `retry_attempts`. A second `REPLAYED_REQUEST` throws `ProofAgeException`.
 
+If the host clock is more than 300 seconds off, the API answers `401 TIMESTAMP_OUT_OF_RANGE` with a `Date`
+header. The SDK then takes the server's time from it for this and every later request of the client, signs
+again and resends once (outside `retry_attempts`); without a `Date` header, or if it fails again, the
+`ProofAgeException` is thrown. Before any re-attempt of a `POST` or `DELETE` the SDK also waits until the
+clock is past the previous attempt's timestamp second, so a retry is never refused as a replay; that wait
+replaces the `retry_delay` pause when it is longer. Only the two creates the SDK sends an `Idempotency-Key`
+with are retried on a 5xx or a timeout: a header your own middleware adds elsewhere does not change that.
+
 The four numeric settings must be integers (integer-valued strings such as `getenv()` returns are
 accepted); a float or anything else throws `ProofAgeException` at construction.
 
