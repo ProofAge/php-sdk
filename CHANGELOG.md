@@ -16,6 +16,10 @@
 - Retries: a `POST` that carries an `Idempotency-Key` is retried like a `GET` (transport failure, 429, 5xx),
   and a `409 IDEMPOTENCY_KEY_IN_PROGRESS` is retried after its `Retry-After` (at most 10 seconds). A call
   without a key retries as before, and `429 REAUTH_RATE_LIMITED` is still not retried.
+- A non-`GET` request answered `401 REPLAYED_REQUEST` (an identical request was signed in the same second;
+  nothing was processed) is resent once after the clock reaches the next whole second, with a new
+  `X-Timestamp` and signature and the same `Idempotency-Key`, whatever the retry policy says. It does not count
+  against `retry_attempts`; a second `REPLAYED_REQUEST` is thrown. `RetryMiddleware` takes an optional clock.
 - Error codes `TIMESTAMP_OUT_OF_RANGE`, `TIMESTAMP_REQUIRED`, `REPLAYED_REQUEST`, `IDEMPOTENCY_KEY_INVALID`,
   `IDEMPOTENCY_KEY_REUSED` and `IDEMPOTENCY_KEY_IN_PROGRESS` are documented in `AGENTS.md`; they arrive
   through `getErrorCode()` like every other code.

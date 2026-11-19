@@ -82,6 +82,12 @@ $verification = $client->verifications()->create(['external_id' => 'order-42'], 
 The key is 1 to 255 printable ASCII characters. The same key and request within 24 hours returns the first
 response; the same key with another request throws `409 IDEMPOTENCY_KEY_REUSED`.
 
+A non-`GET` request the API refuses with `401 REPLAYED_REQUEST` (an identical request was signed in the same
+second, and the signature covers whole seconds only) was never processed, so the SDK waits for the next
+whole second, signs it again with a new `X-Timestamp` and resends it once, keeping the `Idempotency-Key`. This
+applies to every `POST` and `DELETE` whatever the retry rules above say, and does not count against
+`retry_attempts`. A second `REPLAYED_REQUEST` throws `ProofAgeException`.
+
 The four numeric settings must be integers (integer-valued strings such as `getenv()` returns are
 accepted); a float or anything else throws `ProofAgeException` at construction.
 

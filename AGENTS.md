@@ -161,6 +161,15 @@ The exception is a `POST` that carries an `Idempotency-Key`, which is `verificat
 `409 IDEMPOTENCY_KEY_IN_PROGRESS` after its `Retry-After`. The key is the same on every attempt; the
 `X-Timestamp` and the signature are new on each. A `429 REAUTH_RATE_LIMITED` is still not retried.
 
+One more rule applies to every non-`GET` request, whatever its method and whether or not it carries a key. The
+signature covers whole seconds, so two byte-identical requests signed in the same second (two creates with
+the same body) share one, and the API refuses the second with `401 REPLAYED_REQUEST` before processing it. The
+SDK waits until the clock reaches the next whole second, signs the request again with a new `X-Timestamp`
+(everything else, the `Idempotency-Key` included, unchanged) and resends it **once**. That resend does not
+count against `retry_attempts`; a second `REPLAYED_REQUEST` is thrown as a `ProofAgeException`. A `GET` is never
+verified for replay, so it is never resent for it. Give two deliberate identical creates different bodies
+(`external_id`) or send them a second apart if you want to avoid the one-second wait.
+
 ## Enums
 
 - `status`: one of `created`, `started`, `submitted`, `resubmission_requested`, `approved`, `declined`, `abandoned`, `expired`, `review`, `documents_required` — the `ProofAge\Sdk\Enums\VerificationStatus` cases. `documents_required` is reported by the API while the latest attempt waits for document photos; it is not stored on the verification. Map the field with `VerificationStatus::tryFrom()`, not `from()`, so a status added to the API later reads as `null` instead of throwing.
