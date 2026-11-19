@@ -15,8 +15,8 @@ All requests send `X-API-Key` and `X-HMAC-Signature` to `{base_url}/{version}/{p
 `X-ProofAge-Sdk: php/{Client::VERSION}` (a wrapper's `sdk_tokens` go first, e.g.
 `laravel/0.9.0 php/0.3.0`) and, unless one is set, `User-Agent: ProofAge-PHP/{version} (PHP {PHP_VERSION})`;
 neither is signed. The
-`base_url` config key is required and has no default — use `https://api.proofage.net`, with no
-path; `version` defaults to `v1`.
+`base_url` config key defaults to `https://api.proofage.net`; a trailing `/{version}` on it is
+ignored, because the client appends the version itself; `version` defaults to `v1`.
 
 ## Auth / HMAC
 

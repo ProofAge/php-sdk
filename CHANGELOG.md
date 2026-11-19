@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- `base_url` is optional and defaults to `https://api.proofage.net`. Passing `null` also means the
+  default; an explicit empty string is still a configuration error.
+- A trailing `/{version}` on `base_url` is ignored. `https://api.proofage.net/v1`, the address the API
+  reference prints, used to make every call go to `/v1/v1/...` and fail with 404. A path prefix in
+  front of the version (a proxy) is kept.
+
 ## 0.13.0 - 2026-11-18
 
 ### Added
