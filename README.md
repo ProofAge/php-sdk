@@ -30,7 +30,10 @@ $client = new Client([
 $workspace = $client->workspace()->get();
 ```
 
-Every request is signed with `X-API-Key` and `X-HMAC-Signature`; you never touch either. It also
+Every request is signed with `X-API-Key`, `X-Timestamp` and `X-HMAC-Signature`; you never touch any of them.
+The timestamp is read, and the request signed, again on every retry, so keep the host clock right: the API
+refuses a timestamp more than 300 seconds off (`TIMESTAMP_OUT_OF_RANGE`) and a repeated signature
+(`REPLAYED_REQUEST`). It also
 says which SDK sent it: `X-ProofAge-Sdk: php/0.3.0` and `User-Agent: ProofAge-PHP/0.3.0 (PHP 8.4.1)`
 (see [SDK identification](#sdk-identification)).
 
@@ -58,13 +61,26 @@ A `DELETE` (`webhookSubscriptions()->delete()`) is retried the same way; if the 
 through, the retry answers 404. `erasePersonalData()` is the exception: its `DELETE` is retried as a
 `POST` is, below.
 
-A `POST` — `create()`, `acceptConsent()`, `uploadMedia()`, `submit()`, `blockFace()`,
-`setTestOutcome()`, `webhookSubscriptions()->create()` — and the `DELETE` of `erasePersonalData()` are retried
+A `POST` — `acceptConsent()`, `uploadMedia()`, `submit()`, `blockFace()`,
+`setTestOutcome()` — and the `DELETE` of `erasePersonalData()` are retried
 only when repeating it cannot make the server act twice: when the connection failed before the
 request was sent (DNS, connection refused, TLS handshake), or on a 429 that carries `Retry-After`.
 A 5xx or a timeout on a `POST` is thrown at once, because the server may already have created the
 verification, stored the upload or submitted it. Catch the exception and decide: `get()` tells you
 whether a submit went through.
+
+A `POST` that carries an `Idempotency-Key` is the exception, and is retried like a `GET`: that is
+`verifications()->create()` and `webhookSubscriptions()->create()`. The SDK generates a UUID v4 key per call
+and reuses it on every attempt (with a fresh timestamp and signature), so a timeout or a 5xx can never create
+a second verification; a `409 IDEMPOTENCY_KEY_IN_PROGRESS` is retried after its `Retry-After`. Pass your own
+key to make your own retry safe too:
+
+```php
+$verification = $client->verifications()->create(['external_id' => 'order-42'], idempotencyKey: 'order-42');
+```
+
+The key is 1 to 255 printable ASCII characters. The same key and request within 24 hours returns the first
+response; the same key with another request throws `409 IDEMPOTENCY_KEY_REUSED`.
 
 The four numeric settings must be integers (integer-valued strings such as `getenv()` returns are
 accepted); a float or anything else throws `ProofAgeException` at construction.
@@ -418,8 +434,7 @@ to its byte count and sha256 and each file to name, filename, size and sha256 (s
 such as `type` and `side` are shown verbatim); `ResponseEvent` has no body accessor at all.
 
 `raw()` on any event returns the underlying `Request` or `Response` with everything in it: the
-API key, a signature that — since API signing carries no timestamp or nonce — replays the request
-verbatim, document photos and selfies in multipart bodies, and response bodies carrying names,
+API key, a signature that replays the request until the API's 300-second timestamp window closes, document photos and selfies in multipart bodies, and response bodies carrying names,
 dates of birth and document numbers. Call it deliberately, and do not log what it returns.
 
 ## Transports

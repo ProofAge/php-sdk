@@ -14,6 +14,7 @@ use ProofAge\Sdk\Exceptions\ValidationException;
 use ProofAge\Sdk\Http\Curl\CurlHttpClient;
 use ProofAge\Sdk\Signing\Signer;
 use ProofAge\Sdk\Tests\Support\EchoServer;
+use ProofAge\Sdk\Tests\Support\TimestampedSignature;
 
 /**
  * Client over the real cURL transport against PHP's built-in server: the signature the
@@ -68,7 +69,7 @@ class ClientCurlIntegrationTest extends TestCase
 
         $received = base64_decode($echo['body']);
         $this->assertSame(
-            hash_hmac('sha256', 'POST'.$echo['path'].$received, self::SECRET),
+            TimestampedSignature::forEcho($echo['headers'], 'POST'.$echo['path'].$received, self::SECRET),
             $echo['headers']['x-hmac-signature'],
         );
     }
@@ -79,7 +80,7 @@ class ClientCurlIntegrationTest extends TestCase
 
         $this->assertSame('php/'.Client::VERSION, $echo['headers']['x-proofage-sdk']);
         $this->assertSame('ProofAge-PHP/'.Client::VERSION.' (PHP '.PHP_VERSION.')', $echo['headers']['user-agent']);
-        $this->assertSame(hash_hmac('sha256', 'GET'.$echo['path'], self::SECRET), $echo['headers']['x-hmac-signature'], 'The header is not signed.');
+        $this->assertSame(TimestampedSignature::forEcho($echo['headers'], 'GET'.$echo['path'], self::SECRET), $echo['headers']['x-hmac-signature'], 'The header is not signed.');
     }
 
     public function test_a_wrapper_token_and_product_reach_the_server_ahead_of_the_sdk_own(): void
@@ -120,7 +121,7 @@ class ClientCurlIntegrationTest extends TestCase
         $this->assertSame(4096, $echo['files'][0]['size']);
 
         $this->assertSame(
-            (new Signer(self::SECRET))->signMultipart('POST', $echo['path'], $echo['fields'], array_column($echo['files'], 'sha256')),
+            (new Signer(self::SECRET))->signMultipart('POST', $echo['path'], $echo['fields'], array_column($echo['files'], 'sha256'), $echo['headers']['x-timestamp']),
             $echo['headers']['x-hmac-signature'],
         );
     }
@@ -131,7 +132,7 @@ class ClientCurlIntegrationTest extends TestCase
 
         $this->assertSame('limit=10&q=a%20b&status=approved', $echo['query']);
         $this->assertSame(
-            hash_hmac('sha256', 'GET'.$echo['path'].'?'.$echo['query'], self::SECRET),
+            TimestampedSignature::forEcho($echo['headers'], 'GET'.$echo['path'].'?'.$echo['query'], self::SECRET),
             $echo['headers']['x-hmac-signature'],
         );
     }
@@ -141,7 +142,7 @@ class ClientCurlIntegrationTest extends TestCase
         $echo = $this->client()->makeRequest('GET', 'verifications/Jürgen/document')->json();
 
         $this->assertSame('/v1/verifications/J%C3%BCrgen/document', $echo['path'], 'The raw request-target path, which is what the API signs via getPathInfo().');
-        $this->assertSame(hash_hmac('sha256', 'GET'.$echo['path'], self::SECRET), $echo['headers']['x-hmac-signature']);
+        $this->assertSame(TimestampedSignature::forEcho($echo['headers'], 'GET'.$echo['path'], self::SECRET), $echo['headers']['x-hmac-signature']);
     }
 
     public function test_a_malformed_url_fails_once_without_retrying(): void
@@ -179,7 +180,7 @@ class ClientCurlIntegrationTest extends TestCase
 
         $this->assertSame('POST', $echo['method']);
         $this->assertSame(0, $echo['body_length']);
-        $this->assertSame(hash_hmac('sha256', 'POST/v1/verifications/ver_1/submit', self::SECRET), $echo['headers']['x-hmac-signature']);
+        $this->assertSame(TimestampedSignature::forEcho($echo['headers'], 'POST/v1/verifications/ver_1/submit', self::SECRET), $echo['headers']['x-hmac-signature']);
     }
 
     public function test_error_statuses_map_to_exceptions_through_the_real_transport(): void

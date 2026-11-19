@@ -46,7 +46,7 @@ final class RetryMiddleware
                 $response = $next($current);
             } catch (TransportException $error) {
                 if ($error->isRetryable() && $attempt < $policy->maxAttempts && $policy->shouldRetry($current, null, $error)) {
-                    $this->wait($policy);
+                    $this->wait($policy, null);
 
                     continue;
                 }
@@ -58,12 +58,12 @@ final class RetryMiddleware
                 return $response;
             }
 
-            $this->wait($policy);
+            $this->wait($policy, $response);
         }
     }
 
-    private function wait(RetryPolicy $policy): void
+    private function wait(RetryPolicy $policy, ?Response $response): void
     {
-        ($this->sleep)($policy->delayMs * 1000);
+        ($this->sleep)($policy->waitMs($response) * 1000);
     }
 }

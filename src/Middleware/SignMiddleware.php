@@ -15,10 +15,12 @@ use ProofAge\Sdk\Http\SdkIdentity;
 use ProofAge\Sdk\Signing\Signer;
 
 /**
- * The innermost layer: adds X-API-Key and X-HMAC-Signature to whatever reaches it, so
+ * The innermost layer: adds X-API-Key, X-Timestamp and X-HMAC-Signature to whatever reaches it, so
  * nothing a user middleware does can invalidate the signature, sets the SDK identification
  * headers (X-ProofAge-Sdk, the default User-Agent) for the same reason, and fires the events
- * around the transport call. Duration is measured here with hrtime() and attached to
+ * around the transport call. The timestamp is read and the signature computed on every attempt,
+ * so a retry carries a fresh pair: the API accepts a timestamped request once and refuses a
+ * repeated signature with 401 REPLAYED_REQUEST. Duration is measured here with hrtime() and attached to
  * the response before onResponse fires: one clock, one place.
  */
 final class SignMiddleware
@@ -32,11 +34,21 @@ final class SignMiddleware
     /** @var list<callable(ErrorEvent): void> */
     private array $onError = [];
 
+    /** @var \Closure(): int */
+    private readonly \Closure $clock;
+
+    /**
+     * @param  callable(): int|null  $clock  Unix time in seconds for X-Timestamp; defaults to time().
+     *                                       Tests inject a fixed one.
+     */
     public function __construct(
         #[\SensitiveParameter] private readonly string $apiKey,
         private readonly Signer $signer,
         private readonly ?SdkIdentity $identity = null,
-    ) {}
+        ?callable $clock = null,
+    ) {
+        $this->clock = $clock === null ? time(...) : \Closure::fromCallable($clock);
+    }
 
     /**
      * What print_r() and var_dump() show: the API key masked, the signer (which masks its
@@ -91,9 +103,12 @@ final class SignMiddleware
             $request = $this->identity->apply($request);
         }
 
+        $timestamp = (string) ($this->clock)();
+
         $signed = $request
             ->withHeader('X-API-Key', $this->apiKey)
-            ->withHeader('X-HMAC-Signature', $this->signer->sign($request));
+            ->withHeader('X-Timestamp', $timestamp)
+            ->withHeader('X-HMAC-Signature', $this->signer->sign($request, $timestamp));
 
         $requestEvent = new RequestEvent($signed);
 

@@ -8,8 +8,10 @@ use PHPUnit\Framework\TestCase;
 use ProofAge\Sdk\Client;
 use ProofAge\Sdk\Exceptions\ProofAgeException;
 use ProofAge\Sdk\Exceptions\ValidationException;
+use ProofAge\Sdk\Http\Request;
 use ProofAge\Sdk\Resources\WebhookSubscriptionResource;
 use ProofAge\Sdk\Testing\FakeHttpClient;
+use ProofAge\Sdk\Tests\Support\TimestampedSignature;
 
 class WebhookSubscriptionResourceTest extends TestCase
 {
@@ -79,7 +81,7 @@ class WebhookSubscriptionResourceTest extends TestCase
         $this->assertSame($expectedBody, $sent->body?->bytes);
         $this->assertSame('application/json', $sent->header('Content-Type'));
         $this->assertSame(
-            hash_hmac('sha256', 'POST/v1/webhook-subscriptions'.$expectedBody, 'test-secret-key'),
+            TimestampedSignature::forRequest($sent, 'POST/v1/webhook-subscriptions'.$expectedBody, 'test-secret-key'),
             $sent->header('X-HMAC-Signature'),
         );
     }
@@ -97,7 +99,7 @@ class WebhookSubscriptionResourceTest extends TestCase
         $this->assertSame('{"url":"https:\/\/example.com\/hook"}', $this->fake->sent()[0]->body?->bytes);
     }
 
-    public function test_create_is_not_retried_after_a_server_error(): void
+    public function test_create_is_retried_after_a_server_error_with_the_same_idempotency_key(): void
     {
         $client = $this->makeFakedClient([
             'api.test.com/v1/webhook-subscriptions' => FakeHttpClient::json(['message' => 'Server Error'], 502),
@@ -110,7 +112,10 @@ class WebhookSubscriptionResourceTest extends TestCase
             $this->assertSame(502, $e->getCode());
         }
 
-        $this->fake->assertSentCount(1);
+        $this->fake->assertSentCount(3);
+        $keys = array_unique(array_map(static fn (Request $request): ?string => $request->header('Idempotency-Key'), $this->fake->sent()));
+        $this->assertCount(1, $keys);
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/', (string) $keys[0]);
     }
 
     public function test_the_subscription_limit_is_a_validation_exception_carrying_its_code(): void
@@ -164,7 +169,7 @@ class WebhookSubscriptionResourceTest extends TestCase
         $sent = $this->fake->sent()[0];
         $this->assertSame('GET', $sent->method);
         $this->assertNull($sent->body);
-        $this->assertSame(hash_hmac('sha256', 'GET/v1/webhook-subscriptions', 'test-secret-key'), $sent->header('X-HMAC-Signature'));
+        $this->assertSame(TimestampedSignature::forRequest($sent, 'GET/v1/webhook-subscriptions', 'test-secret-key'), $sent->header('X-HMAC-Signature'));
     }
 
     public function test_delete_sends_a_signed_delete_and_accepts_the_empty_204(): void
@@ -179,7 +184,7 @@ class WebhookSubscriptionResourceTest extends TestCase
         $this->assertSame('DELETE', $sent->method);
         $this->assertSame('https://api.test.com/v1/webhook-subscriptions/sub_1', $sent->url);
         $this->assertNull($sent->body);
-        $this->assertSame(hash_hmac('sha256', 'DELETE/v1/webhook-subscriptions/sub_1', 'test-secret-key'), $sent->header('X-HMAC-Signature'));
+        $this->assertSame(TimestampedSignature::forRequest($sent, 'DELETE/v1/webhook-subscriptions/sub_1', 'test-secret-key'), $sent->header('X-HMAC-Signature'));
     }
 
     public function test_delete_of_an_unknown_subscription_throws_a_404(): void

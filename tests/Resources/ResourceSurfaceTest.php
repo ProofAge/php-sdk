@@ -28,7 +28,7 @@ class ResourceSurfaceTest extends TestCase
         yield 'WorkspaceResource::getConsent' => [WorkspaceResource::class, 'getConsent', 'getConsent(): ?array'];
 
         yield 'VerificationResource::__construct' => [VerificationResource::class, '__construct', "__construct({$client} \$client, ?string \$verificationId = null)"];
-        yield 'VerificationResource::create' => [VerificationResource::class, 'create', 'create(array $data): ?array'];
+        yield 'VerificationResource::create' => [VerificationResource::class, 'create', 'create(array $data, ?string $idempotencyKey = null): ?array'];
         yield 'VerificationResource::list' => [VerificationResource::class, 'list', 'list(array $query = []): ?array'];
         yield 'VerificationResource::find' => [VerificationResource::class, 'find', 'find(string $id): ?array'];
         yield 'VerificationResource::get' => [VerificationResource::class, 'get', 'get(): ?array'];
@@ -44,7 +44,7 @@ class ResourceSurfaceTest extends TestCase
         yield 'VerificationResource::setTestOutcome' => [VerificationResource::class, 'setTestOutcome', 'setTestOutcome(array $data): ?array'];
 
         yield 'WebhookSubscriptionResource::__construct' => [WebhookSubscriptionResource::class, '__construct', "__construct({$client} \$client)"];
-        yield 'WebhookSubscriptionResource::create' => [WebhookSubscriptionResource::class, 'create', 'create(array $data): ?array'];
+        yield 'WebhookSubscriptionResource::create' => [WebhookSubscriptionResource::class, 'create', 'create(array $data, ?string $idempotencyKey = null): ?array'];
         yield 'WebhookSubscriptionResource::list' => [WebhookSubscriptionResource::class, 'list', 'list(): ?array'];
         yield 'WebhookSubscriptionResource::delete' => [WebhookSubscriptionResource::class, 'delete', 'delete(string $id): void'];
 

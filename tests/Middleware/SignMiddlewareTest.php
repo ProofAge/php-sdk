@@ -31,6 +31,8 @@ class SignMiddlewareTest extends TestCase
 
     private const API_KEY = 'test-api-key-7f2a';
 
+    private const NOW = 1795049078;
+
     private FakeHttpClient $fake;
 
     private SignMiddleware $sign;
@@ -40,7 +42,7 @@ class SignMiddlewareTest extends TestCase
     protected function setUp(): void
     {
         $this->fake = new FakeHttpClient(['*' => FakeHttpClient::json(['ok' => true], 200, ['Content-Length' => '11'])]);
-        $this->sign = new SignMiddleware(self::API_KEY, new Signer(self::SECRET));
+        $this->sign = new SignMiddleware(self::API_KEY, new Signer(self::SECRET), null, static fn (): int => self::NOW);
         $this->pipeline = new Pipeline($this->fake, $this->sign, new RetryMiddleware(static fn (int $ms) => null));
     }
 
@@ -57,9 +59,48 @@ class SignMiddlewareTest extends TestCase
         $this->assertInstanceOf(RawBody::class, $sent->body);
         $this->assertSame(self::API_KEY, $sent->header('X-API-Key'));
         $this->assertSame(
-            hash_hmac('sha256', 'POST/v1/verifications'.$sent->body->bytes, self::SECRET),
+            hash_hmac('sha256', self::NOW.'.POST/v1/verifications'.$sent->body->bytes, self::SECRET),
             $sent->header('X-HMAC-Signature'),
         );
+    }
+
+    public function test_every_request_carries_the_timestamp_it_was_signed_with(): void
+    {
+        $this->pipeline->send($this->request(new RawBody('{"a":1}')));
+
+        $sent = $this->fake->sent()[0];
+        $this->assertSame((string) self::NOW, $sent->header('X-Timestamp'));
+        $this->assertSame((new Signer(self::SECRET))->signRaw('POST', '/v1/verifications', '{"a":1}', (string) self::NOW), $sent->header('X-HMAC-Signature'));
+    }
+
+    public function test_a_retry_is_signed_again_with_a_fresh_timestamp(): void
+    {
+        $now = self::NOW;
+        $fake = new FakeHttpClient(['*' => [FakeHttpClient::json(['message' => 'down'], 503), FakeHttpClient::json(['ok' => true])]]);
+        $pipeline = new Pipeline(
+            $fake,
+            new SignMiddleware(self::API_KEY, new Signer(self::SECRET), null, static function () use (&$now): int {
+                return $now++;
+            }),
+            new RetryMiddleware(static fn (int $ms) => null),
+        );
+
+        $pipeline->send($this->request(null, 'GET', '/v1/verifications'));
+
+        [$first, $second] = $fake->sent();
+        $this->assertSame((string) self::NOW, $first->header('X-Timestamp'));
+        $this->assertSame((string) (self::NOW + 1), $second->header('X-Timestamp'));
+        $this->assertNotSame($first->header('X-HMAC-Signature'), $second->header('X-HMAC-Signature'), 'The same signature twice is a replay.');
+        $this->assertSame((new Signer(self::SECRET))->signRaw('GET', '/v1/verifications', '', (string) (self::NOW + 1)), $second->header('X-HMAC-Signature'));
+    }
+
+    public function test_a_middleware_cannot_set_the_timestamp(): void
+    {
+        $this->pipeline->push(static fn (Request $request, callable $next): Response => $next($request->withHeader('X-Timestamp', '1')));
+
+        $this->pipeline->send($this->request(null, 'GET'));
+
+        $this->assertSame((string) self::NOW, $this->fake->sent()[0]->header('X-Timestamp'));
     }
 
     public function test_a_middleware_that_replaces_the_body_is_signed_over_the_replacement(): void
@@ -71,7 +112,7 @@ class SignMiddlewareTest extends TestCase
         $sent = $this->fake->sent()[0];
         $this->assertInstanceOf(RawBody::class, $sent->body);
         $this->assertSame('{"replaced":true}', $sent->body->bytes);
-        $this->assertSame(hash_hmac('sha256', 'POST/v1/verifications{"replaced":true}', self::SECRET), $sent->header('X-HMAC-Signature'));
+        $this->assertSame(hash_hmac('sha256', self::NOW.'.POST/v1/verifications{"replaced":true}', self::SECRET), $sent->header('X-HMAC-Signature'));
     }
 
     public function test_a_middleware_that_adds_a_header_does_not_change_the_signature(): void
@@ -93,7 +134,7 @@ class SignMiddlewareTest extends TestCase
 
         $this->pipeline->send($this->request(null, 'GET'));
 
-        $this->assertSame(hash_hmac('sha256', 'GET/v1/verifications?limit=10', self::SECRET), $this->fake->sent()[0]->header('X-HMAC-Signature'));
+        $this->assertSame(hash_hmac('sha256', self::NOW.'.GET/v1/verifications?limit=10', self::SECRET), $this->fake->sent()[0]->header('X-HMAC-Signature'));
     }
 
     public function test_middleware_never_sees_the_auth_headers_but_the_request_event_does(): void
@@ -119,7 +160,7 @@ class SignMiddlewareTest extends TestCase
 
         $this->assertSame(['first' => [null, null], 'last' => [null, null]], $seenByMiddleware);
         $this->assertInstanceOf(RequestEvent::class, $event);
-        $this->assertSame(hash_hmac('sha256', 'POST/v1/verifications{"a":1}', self::SECRET), $event->raw()->header('X-HMAC-Signature'));
+        $this->assertSame(hash_hmac('sha256', self::NOW.'.POST/v1/verifications{"a":1}', self::SECRET), $event->raw()->header('X-HMAC-Signature'));
         $this->assertSame(self::API_KEY, $event->raw()->header('X-API-Key'));
     }
 
@@ -131,7 +172,7 @@ class SignMiddlewareTest extends TestCase
         $this->pipeline->send($this->request(new MultipartBody($fields, [$part]), 'POST', '/v1/verifications/ver_1/media'));
 
         $this->assertSame(
-            (new Signer(self::SECRET))->signMultipart('POST', '/v1/verifications/ver_1/media', $fields, [$part->sha256()]),
+            (new Signer(self::SECRET))->signMultipart('POST', '/v1/verifications/ver_1/media', $fields, [$part->sha256()], (string) self::NOW),
             $this->fake->sent()[0]->header('X-HMAC-Signature'),
         );
     }

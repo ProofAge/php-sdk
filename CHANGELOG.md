@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.14.0 - 2026-11-19
+
+### Added
+
+- Every request now carries `X-Timestamp` (Unix seconds) and is signed over `{timestamp}.{canonical}`.
+  The timestamp is read, and the signature computed, on every attempt, so a retry is signed afresh: the
+  API accepts a timestamped request other than `GET`/`HEAD` once and refuses a repeated signature with
+  `401 REPLAYED_REQUEST`. `Signer::sign()`, `signRaw()`, `signMultipart()`, `canonicalRaw()` and
+  `canonicalMultipart()` take an optional trailing `$timestamp`; without it they sign the legacy string
+  as before. `SignMiddleware` takes an optional clock for tests.
+- `verifications()->create()` and `webhookSubscriptions()->create()` send an `Idempotency-Key`: a fresh UUID
+  v4 per call, reused by the SDK's own retries, or your own as the new optional second argument
+  (`idempotencyKey`, 1 to 255 printable ASCII characters).
+- Retries: a `POST` that carries an `Idempotency-Key` is retried like a `GET` (transport failure, 429, 5xx),
+  and a `409 IDEMPOTENCY_KEY_IN_PROGRESS` is retried after its `Retry-After` (at most 10 seconds). A call
+  without a key retries as before, and `429 REAUTH_RATE_LIMITED` is still not retried.
+- Error codes `TIMESTAMP_OUT_OF_RANGE`, `TIMESTAMP_REQUIRED`, `REPLAYED_REQUEST`, `IDEMPOTENCY_KEY_INVALID`,
+  `IDEMPOTENCY_KEY_REUSED` and `IDEMPOTENCY_KEY_IN_PROGRESS` are documented in `AGENTS.md`; they arrive
+  through `getErrorCode()` like every other code.
+- `resources/hmac-vectors.json` has a `timestamped` set, executed by `tests/Signing/HmacVectorsTest.php`.
+- `resources/openapi.json` synced from the docs (`requestTimestamp` security scheme, `Idempotency-Key`).
+
+### Changed
+
+- A custom `HttpClient` or middleware that copied the signature of a request and re-sent it later must now
+  also send its `X-Timestamp`; the SDK itself needs no change. `create()` of both resources has a new
+  optional parameter, so a subclass that overrides it must accept it.
+
 ## 0.13.0 - 2026-11-18
 
 ### Added

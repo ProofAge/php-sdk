@@ -33,6 +33,9 @@ class WebhookSubscriptionResource
      * this client signs with while that key exists, and with the active secret key after it is
      * deleted. A delivery answered with `410 Gone` deletes the subscription.
      *
+     * Sends an `Idempotency-Key` like VerificationResource::create(): a fresh UUID v4, or
+     * `$idempotencyKey`, reused on the SDK's own retries.
+     *
      * The API answers 201. `statuses` comes back null when the subscription receives every
      * decision status. A workspace that already has 50 throws a ValidationException with
      * getErrorCode() WEBHOOK_SUBSCRIPTION_LIMIT.
@@ -50,9 +53,9 @@ class WebhookSubscriptionResource
      *     created_at: string
      * }|null
      */
-    public function create(array $data): ?array
+    public function create(array $data, ?string $idempotencyKey = null): ?array
     {
-        $response = $this->client->makeRequest('POST', 'webhook-subscriptions', $data);
+        $response = $this->client->makeIdempotentRequest('POST', 'webhook-subscriptions', $data, $idempotencyKey);
 
         return $response->json();
     }

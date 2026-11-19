@@ -14,6 +14,9 @@ use ProofAge\Sdk\Http\Request;
  * - JSON / no-file requests: `METHOD + /{version}/{path}[?query] + rawBody`
  * - Multipart requests:      `METHOD/{version}/{path}[?query]\n{fields as RFC 3986 query, ksorted recursively}\n{comma-joined sorted sha256(file) hashes}`
  *
+ * With a timestamp (the `X-Timestamp` header, Unix seconds) either form is prefixed with
+ * `{timestamp}.`; without one the legacy form is unchanged.
+ *
  * Both are pinned by resources/hmac-vectors.json, executed by tests/Signing/HmacVectorsTest.php.
  * The fixture ships in the dist so the server's test suite can execute the same file; until
  * it does, the server's VerifyHmacSignature middleware and this class agree by inspection.
@@ -34,51 +37,57 @@ final class Signer
 
     /**
      * Dispatches on the body type: RawBody and no body use the raw form, MultipartBody the multipart form.
+     * A $timestamp (the value of the request's `X-Timestamp` header) is signed in front of either.
      */
-    public function sign(Request $request): string
+    public function sign(Request $request, ?string $timestamp = null): string
     {
         $body = $request->body;
 
         if ($body instanceof MultipartBody) {
-            return $this->signMultipart($request->method, $request->path, $body->fields, $body->fileHashes());
+            return $this->signMultipart($request->method, $request->path, $body->fields, $body->fileHashes(), $timestamp);
         }
 
-        return $this->signRaw($request->method, $request->path, $body instanceof RawBody ? $body->bytes : '');
+        return $this->signRaw($request->method, $request->path, $body instanceof RawBody ? $body->bytes : '', $timestamp);
     }
 
     /**
      * METHOD + path + rawBody. The bytes passed here must be the bytes the transport sends.
      */
-    public function signRaw(string $method, string $path, string $rawBody = ''): string
+    public function signRaw(string $method, string $path, string $rawBody = '', ?string $timestamp = null): string
     {
-        return hash_hmac('sha256', self::canonicalRaw($method, $path, $rawBody), $this->secretKey);
+        return hash_hmac('sha256', self::canonicalRaw($method, $path, $rawBody, $timestamp), $this->secretKey);
     }
 
     /**
      * @param  array<string, mixed>  $fields
      * @param  list<string>  $fileHashes  sha256 hex digests of the file bytes sent, in any order
      */
-    public function signMultipart(string $method, string $path, array $fields, array $fileHashes): string
+    public function signMultipart(string $method, string $path, array $fields, array $fileHashes, ?string $timestamp = null): string
     {
-        return hash_hmac('sha256', self::canonicalMultipart($method, $path, $fields, $fileHashes), $this->secretKey);
+        return hash_hmac('sha256', self::canonicalMultipart($method, $path, $fields, $fileHashes, $timestamp), $this->secretKey);
     }
 
-    public static function canonicalRaw(string $method, string $path, string $rawBody = ''): string
+    public static function canonicalRaw(string $method, string $path, string $rawBody = '', ?string $timestamp = null): string
     {
-        return strtoupper($method).$path.$rawBody;
+        return self::timestampPrefix($timestamp).strtoupper($method).$path.$rawBody;
     }
 
     /**
      * @param  array<string, mixed>  $fields
      * @param  list<string>  $fileHashes
      */
-    public static function canonicalMultipart(string $method, string $path, array $fields, array $fileHashes): string
+    public static function canonicalMultipart(string $method, string $path, array $fields, array $fileHashes, ?string $timestamp = null): string
     {
         $fieldsString = http_build_query(self::canonicalizeFields($fields), '', '&', PHP_QUERY_RFC3986);
 
         sort($fileHashes);
 
-        return strtoupper($method).$path."\n".$fieldsString."\n".implode(',', $fileHashes);
+        return self::timestampPrefix($timestamp).strtoupper($method).$path."\n".$fieldsString."\n".implode(',', $fileHashes);
+    }
+
+    private static function timestampPrefix(?string $timestamp): string
+    {
+        return $timestamp === null ? '' : $timestamp.'.';
     }
 
     /**

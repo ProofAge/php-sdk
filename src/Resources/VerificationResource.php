@@ -46,6 +46,12 @@ class VerificationResource
      * 422 REFERENCE_NOT_APPROVED, REFERENCE_NOT_SUPPORTED or REFERENCE_UNAVAILABLE (a
      * ValidationException), 429 REAUTH_RATE_LIMITED.
      *
+     * Every call sends an `Idempotency-Key`: a fresh UUID v4, or `$idempotencyKey` (1 to 255
+     * printable ASCII characters). The SDK reuses it on its own retries, so a timeout or a 5xx
+     * never creates a second verification; pass your own key, stored with your order, to make a
+     * retry of your own call safe too. The API replays the first response for 24 hours; the
+     * same key with a different request throws 409 `IDEMPOTENCY_KEY_REUSED`.
+     *
      * `status` is one of the {@see VerificationStatus} values; read it with tryFrom().
      * `duplicate_check` lists the accounts whose face matched this one (`duplicate_count`
      * spans every match, the list may be shorter). `erasure` is null until the personal data
@@ -80,9 +86,9 @@ class VerificationResource
      *     url: string
      * }|null
      */
-    public function create(array $data): ?array
+    public function create(array $data, ?string $idempotencyKey = null): ?array
     {
-        $response = $this->client->makeRequest('POST', 'verifications', $data);
+        $response = $this->client->makeIdempotentRequest('POST', 'verifications', $data, $idempotencyKey);
 
         return $response->json();
     }

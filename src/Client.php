@@ -38,7 +38,7 @@ class Client
      * This package's version, reported in X-ProofAge-Sdk and User-Agent. Equal to the newest
      * released heading in CHANGELOG.md (tests/VersionTest.php); bumped in the release commit.
      */
-    public const VERSION = '0.13.0';
+    public const VERSION = '0.14.0';
 
     /**
      * Sent on every request: `name/version` tokens separated by single spaces, outermost
@@ -138,6 +138,42 @@ class Client
     }
 
     /**
+     * makeRequest() for a create the API de-duplicates (POST /verifications, POST
+     * /webhook-subscriptions): it sends an Idempotency-Key, so a retry after a timeout or a
+     * 5xx cannot create twice.
+     *
+     * The key is the caller's, or a fresh UUID v4 when null, and is set once here, before the
+     * retry loop: every attempt carries the same key with a fresh X-Timestamp and signature.
+     *
+     * @internal Called by the resources; not part of the preserved surface.
+     *
+     * @param  array<string, mixed>  $data  JSON body
+     *
+     * @throws \InvalidArgumentException for a key that is not 1 to 255 printable ASCII characters
+     * @throws ProofAgeException on a non-2xx response
+     * @throws Exceptions\TransportException when every attempt failed below HTTP
+     */
+    public function makeIdempotentRequest(string $method, string $endpoint, array $data = [], ?string $idempotencyKey = null): Response
+    {
+        $key = $idempotencyKey ?? self::uuidV4();
+
+        if (preg_match('/^[\x21-\x7E]{1,255}$/', $key) !== 1) {
+            throw new \InvalidArgumentException('The idempotency key must be 1 to 255 printable ASCII characters (no spaces).');
+        }
+
+        return $this->sendJsonOrMultipart($method, $endpoint, $data, [], RetryPolicy::interactive($this->retryAttempts(), $this->retryDelay()), [RetryPolicy::IDEMPOTENCY_KEY_HEADER => $key]);
+    }
+
+    private static function uuidV4(): string
+    {
+        $bytes = random_bytes(16);
+        $bytes[6] = chr((ord($bytes[6]) & 0x0F) | 0x40);
+        $bytes[8] = chr((ord($bytes[8]) & 0x3F) | 0x80);
+
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4));
+    }
+
+    /**
      * makeRequest() for a call that must not be repeated blindly whatever its method: it is
      * retried only as a POST is, after a 429 carrying Retry-After or a connection failure
      * that never reached the server, and never after another status or a timeout.
@@ -161,11 +197,12 @@ class Client
     /**
      * @param  array<string, mixed>  $data
      * @param  array<string, string|\SplFileInfo|FilePart>  $files
+     * @param  array<string, string>  $extraHeaders
      */
-    private function sendJsonOrMultipart(string $method, string $endpoint, array $data, array $files, RetryPolicy $retryPolicy): Response
+    private function sendJsonOrMultipart(string $method, string $endpoint, array $data, array $files, RetryPolicy $retryPolicy, array $extraHeaders = []): Response
     {
         [$url, $path] = $this->resolve($endpoint);
-        $headers = ['Accept' => 'application/json'];
+        $headers = ['Accept' => 'application/json'] + $extraHeaders;
 
         if ($files !== []) {
             $parts = [];

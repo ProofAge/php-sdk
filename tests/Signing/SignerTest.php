@@ -28,6 +28,22 @@ class SignerTest extends TestCase
         $this->assertSame(hash_hmac('sha256', 'POST/v1/verifications'.$rawBody, $this->secret), $signature);
     }
 
+    public function test_a_timestamp_is_signed_in_front_of_the_legacy_canonical_string(): void
+    {
+        $signer = new Signer($this->secret);
+
+        $this->assertSame('1795049078.POST/v1/verifications{"a":1}', Signer::canonicalRaw('post', '/v1/verifications', '{"a":1}', '1795049078'));
+        $this->assertSame(hash_hmac('sha256', '1795049078.GET/v1/workspace', $this->secret), $signer->signRaw('GET', '/v1/workspace', '', '1795049078'));
+        $this->assertSame("1795049078.POST/v1/x\na=1\nabc", Signer::canonicalMultipart('POST', '/v1/x', ['a' => 1], ['abc'], '1795049078'));
+        $this->assertNotSame($signer->signRaw('GET', '/v1/workspace'), $signer->signRaw('GET', '/v1/workspace', '', '1795049078'));
+    }
+
+    public function test_without_a_timestamp_the_legacy_form_is_unchanged(): void
+    {
+        $this->assertSame('GET/v1/workspace', Signer::canonicalRaw('GET', '/v1/workspace'));
+        $this->assertSame("POST/v1/x\na=1\nabc", Signer::canonicalMultipart('POST', '/v1/x', ['a' => 1], ['abc']));
+    }
+
     public function test_sign_raw_defaults_to_an_empty_body(): void
     {
         $signer = new Signer($this->secret);

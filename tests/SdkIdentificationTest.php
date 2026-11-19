@@ -215,11 +215,15 @@ class SdkIdentificationTest extends TestCase
         $this->client([], $plain)->makeRequest('POST', 'verifications', ['external_id' => 'u-1']);
         $this->client(['sdk_tokens' => ['acme/1.0.0'], 'user_agent_prefix' => 'Acme/1.0.0'], $wrapped)->makeRequest('POST', 'verifications', ['external_id' => 'u-1']);
 
-        $expected = (new Signer('test-secret-key'))->sign($plain->sent()[0]->withoutHeader('X-ProofAge-Sdk')->withoutHeader('User-Agent'));
+        foreach ([$plain, $wrapped] as $fake) {
+            $sent = $fake->sent()[0];
+            $unidentified = $sent->withoutHeader('X-ProofAge-Sdk')->withoutHeader('User-Agent');
+            $timestamp = (string) $sent->header('X-Timestamp');
+            $expected = (new Signer('test-secret-key'))->sign($unidentified, $timestamp);
 
-        $this->assertSame(hash_hmac('sha256', 'POST/v1/verifications{"external_id":"u-1"}', 'test-secret-key'), $expected);
-        $this->assertSame($expected, $plain->sent()[0]->header('X-HMAC-Signature'));
-        $this->assertSame($expected, $wrapped->sent()[0]->header('X-HMAC-Signature'));
+            $this->assertSame(hash_hmac('sha256', $timestamp.'.POST/v1/verifications{"external_id":"u-1"}', 'test-secret-key'), $expected);
+            $this->assertSame($expected, $sent->header('X-HMAC-Signature'));
+        }
     }
 
     /** @return iterable<string, array{mixed}> */

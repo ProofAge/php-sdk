@@ -20,6 +20,7 @@ use ProofAge\Sdk\Http\Response;
 use ProofAge\Sdk\Http\RetryPolicy;
 use ProofAge\Sdk\Signing\Signer;
 use ProofAge\Sdk\Tests\Support\EchoServer;
+use ProofAge\Sdk\Tests\Support\TimestampedSignature;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
@@ -201,7 +202,7 @@ class Psr18HttpClientTest extends TestCase
 
         $this->assertSame('psr-key', $echo['headers']['x-api-key']);
         $this->assertSame(
-            hash_hmac('sha256', 'POST'.$echo['path'].base64_decode($echo['body']), 'psr-secret'),
+            TimestampedSignature::forEcho($echo['headers'], 'POST'.$echo['path'].base64_decode($echo['body']), 'psr-secret'),
             $echo['headers']['x-hmac-signature'],
         );
     }

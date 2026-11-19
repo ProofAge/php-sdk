@@ -180,6 +180,38 @@ class ApiContractTest extends TestCase
         $this->assertStringContainsString('REAUTH_RATE_LIMITED', json_encode($responses['429']));
     }
 
+    /**
+     * The SDK sends an Idempotency-Key on exactly the operations the spec says take one, and
+     * signs a timestamp whichever way the spec's `security` alternatives are listed.
+     */
+    public function test_the_idempotency_key_is_on_the_creates_the_sdk_sends_it_with(): void
+    {
+        $withKey = [];
+
+        foreach ($this->spec['paths'] as $path => $methods) {
+            foreach ($methods as $method => $operation) {
+                foreach ($operation['parameters'] ?? [] as $parameter) {
+                    if (($parameter['in'] ?? null) === 'header' && $parameter['name'] === 'Idempotency-Key') {
+                        $withKey[] = strtoupper($method).' '.$path;
+                    }
+                }
+            }
+        }
+
+        sort($withKey);
+        $this->assertSame(['POST /verifications', 'POST /webhook-subscriptions'], $withKey);
+    }
+
+    public function test_the_spec_offers_the_signature_with_and_without_a_timestamp(): void
+    {
+        $this->assertArrayHasKey('requestTimestamp', $this->spec['components']['securitySchemes']);
+        $this->assertSame('X-Timestamp', $this->spec['components']['securitySchemes']['requestTimestamp']['name']);
+        $this->assertSame(
+            [['apiKey', 'hmacSignature', 'requestTimestamp'], ['apiKey', 'hmacSignature']],
+            array_map(static fn (array $alternative): array => array_keys($alternative), $this->spec['security']),
+        );
+    }
+
     public function test_endpoints_the_sdk_treats_as_bodiless_have_no_json_success_body_in_the_spec(): void
     {
         $bodiless = [];
