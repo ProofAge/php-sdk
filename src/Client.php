@@ -38,7 +38,7 @@ class Client
      * This package's version, reported in X-ProofAge-Sdk and User-Agent. Equal to the newest
      * released heading in CHANGELOG.md (tests/VersionTest.php); bumped in the release commit.
      */
-    public const VERSION = '0.13.0';
+    public const VERSION = '0.14.0';
 
     /** The API origin used when the config has no `base_url`. */
     public const DEFAULT_BASE_URL = 'https://api.proofage.net';
