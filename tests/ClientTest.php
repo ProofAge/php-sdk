@@ -66,12 +66,50 @@ class ClientTest extends TestCase
         new Client(['api_key' => 'test-api-key', 'base_url' => 'https://api.test.com']);
     }
 
-    public function test_it_throws_exception_when_base_url_is_missing(): void
+    public function test_base_url_defaults_to_the_production_api(): void
+    {
+        $fake = new FakeHttpClient(['*' => FakeHttpClient::json([])]);
+
+        (new Client(['api_key' => 'test-api-key', 'secret_key' => 'test-secret-key'], $fake))->makeRequest('GET', 'workspace');
+        (new Client(['api_key' => 'test-api-key', 'secret_key' => 'test-secret-key', 'base_url' => null], $fake))->makeRequest('GET', 'workspace');
+
+        $this->assertSame('https://api.proofage.net/v1/workspace', $fake->sent()[0]->url);
+        $this->assertSame('https://api.proofage.net/v1/workspace', $fake->sent()[1]->url);
+    }
+
+    public function test_an_explicitly_empty_base_url_is_still_an_error(): void
     {
         $this->expectException(ProofAgeException::class);
         $this->expectExceptionMessage('Base URL is required');
 
-        new Client(['api_key' => 'test-api-key', 'secret_key' => 'test-secret-key']);
+        new Client(['api_key' => 'test-api-key', 'secret_key' => 'test-secret-key', 'base_url' => '']);
+    }
+
+    /**
+     * The API reference prints `https://api.proofage.net/v1`; passing it must not call `/v1/v1`.
+     *
+     * @return iterable<string, array{string, string, string}>
+     */
+    public static function baseUrlsWithAVersion(): iterable
+    {
+        yield 'trailing /v1' => ['https://api.test.com/v1', 'v1', 'https://api.test.com/v1/workspace'];
+        yield 'trailing /v1/' => ['https://api.test.com/v1/', 'v1', 'https://api.test.com/v1/workspace'];
+        yield 'another configured version' => ['https://api.test.com/v2', 'v2', 'https://api.test.com/v2/workspace'];
+        yield 'a proxy prefix is kept' => ['https://proxy.test.com/proofage/v1', 'v1', 'https://proxy.test.com/proofage/v1/workspace'];
+        yield 'a different version is not touched' => ['https://api.test.com/v1', 'v2', 'https://api.test.com/v1/v2/workspace'];
+        yield 'only a whole segment counts' => ['https://api.test.com/apiv1', 'v1', 'https://api.test.com/apiv1/v1/workspace'];
+    }
+
+    #[DataProvider('baseUrlsWithAVersion')]
+    public function test_a_trailing_version_on_the_base_url_is_not_doubled(string $baseUrl, string $version, string $expectedUrl): void
+    {
+        $client = $this->client(['*' => FakeHttpClient::json([])], ['base_url' => $baseUrl, 'version' => $version], $fake);
+
+        $client->makeRequest('GET', 'workspace');
+
+        $sent = $fake->sent()[0];
+        $this->assertSame($expectedUrl, $sent->url);
+        $this->assertSame('/'.$version.'/workspace', $sent->path);
     }
 
     public function test_an_empty_string_counts_as_missing(): void

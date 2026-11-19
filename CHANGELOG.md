@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.14.0 - 2026-11-19
+## 0.15.0 - 2026-11-19
 
 ### Added
 
@@ -41,6 +41,16 @@
 - A custom `HttpClient` or middleware that copied the signature of a request and re-sent it later must now
   also send its `X-Timestamp`; the SDK itself needs no change. `create()` of both resources has a new
   optional parameter, so a subclass that overrides it must accept it.
+
+## 0.14.0 - 2026-11-19
+
+### Changed
+
+- `base_url` is optional and defaults to `https://api.proofage.net`. Passing `null` also means the
+  default; an explicit empty string is still a configuration error.
+- A trailing `/{version}` on `base_url` is ignored. `https://api.proofage.net/v1`, the address the API
+  reference prints, used to make every call go to `/v1/v1/...` and fail with 404. A path prefix in
+  front of the version (a proxy) is kept.
 
 ## 0.13.0 - 2026-11-18
 

@@ -39,7 +39,10 @@ class Client
      * This package's version, reported in X-ProofAge-Sdk and User-Agent. Equal to the newest
      * released heading in CHANGELOG.md (tests/VersionTest.php); bumped in the release commit.
      */
-    public const VERSION = '0.14.0';
+    public const VERSION = '0.15.0';
+
+    /** The API origin used when the config has no `base_url`. */
+    public const DEFAULT_BASE_URL = 'https://api.proofage.net';
 
     /**
      * Sent on every request: `name/version` tokens separated by single spaces, outermost
@@ -91,6 +94,7 @@ class Client
     public function __construct(#[\SensitiveParameter] array $config, ?HttpClient $transport = null, ?ExceptionFactory $exceptions = null, ?callable $sleep = null)
     {
         $this->config = array_merge([
+            'base_url' => self::DEFAULT_BASE_URL,
             'version' => 'v1',
             'timeout' => 30,
             'retry_attempts' => 3,
@@ -385,6 +389,24 @@ class Client
         ];
     }
 
+    /**
+     * The base URL without trailing slashes or a trailing `/{version}`. The client appends the
+     * version itself, so `https://api.proofage.net/v1`, the address the API reference and the
+     * OpenAPI `servers` entry print, would otherwise call `/v1/v1/...` and get a 404. A path
+     * prefix in front of the version (a proxy) is kept.
+     */
+    private static function withoutVersionSuffix(string $baseUrl, string $version): string
+    {
+        $baseUrl = rtrim($baseUrl, '/');
+        $suffix = '/'.trim($version, '/');
+
+        if ($suffix !== '/' && str_ends_with($baseUrl, $suffix)) {
+            $baseUrl = rtrim(substr($baseUrl, 0, -strlen($suffix)), '/');
+        }
+
+        return $baseUrl;
+    }
+
     protected function validateConfig(): void
     {
         if (empty($this->config['api_key'])) {
@@ -394,6 +416,9 @@ class Client
         if (empty($this->config['secret_key'])) {
             throw $this->exceptions->configuration('Secret key is required');
         }
+
+        // Absent or null means the default; an explicit empty string is a mistake worth reporting.
+        $this->config['base_url'] ??= self::DEFAULT_BASE_URL;
 
         if (empty($this->config['base_url'])) {
             throw $this->exceptions->configuration('Base URL is required');
@@ -534,8 +559,8 @@ class Client
             explode('/', $endpoint),
         ));
 
-        $baseUrl = rtrim((string) $this->config['base_url'], '/');
         $version = (string) $this->config['version'];
+        $baseUrl = self::withoutVersionSuffix((string) $this->config['base_url'], $version);
 
         $path = '/'.$version.'/'.$endpoint;
         $url = "{$baseUrl}/{$version}/{$endpoint}";
