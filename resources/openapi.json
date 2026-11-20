@@ -1,5 +1,5 @@
 {
-  "openapi": "3.1.0",
+  "openapi": "3.1.2",
   "info": {
     "title": "API Reference",
     "version": "1.0.0",
@@ -64,6 +64,9 @@
           },
           "404": {
             "$ref": "#/components/responses/ModelNotFoundException"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitException"
           },
           "422": {
             "description": "The image failed a quality check; the code says which.",
@@ -166,11 +169,6 @@
           "200": {
             "description": "The media file itself. Content-Type carries its MIME type.",
             "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              },
               "image/jpeg": {
                 "schema": {
                   "type": "string",
@@ -217,6 +215,9 @@
               }
             }
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimitException"
+          },
           "422": {
             "$ref": "#/components/responses/ValidationException"
           }
@@ -241,6 +242,70 @@
           }
         },
         "responses": {
+          "429": {
+            "description": "Either the rate limiter refused the request (`RATE_LIMIT`): wait `Retry-After` seconds and send it again. Or ten face re-verifications were already created against this reference verification in the last 24 hours, so the 11th is refused (`REAUTH_RATE_LIMITED`): that answer has no `Retry-After` and does not clear within seconds, so do not retry it in a loop.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "REAUTH_RATE_LIMITED",
+                        "message": "Too many re-checks for this reference verification in 24 hours."
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the request may be sent again.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "The limit that was hit, in requests per minute.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests left in the current minute: `0`.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Unix time, in seconds, when the request may be sent again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
           "422": {
             "description": "A field is invalid (`message` and `errors` by field), or the reference verification cannot be re-checked: it is not `approved` (`REFERENCE_NOT_APPROVED`), it is not a document verification (`REFERENCE_NOT_SUPPORTED`), or it holds no face to compare with because it was erased or its face data was deleted at the end of its retention period (`REFERENCE_UNAVAILABLE`).",
             "content": {
@@ -620,44 +685,6 @@
                 }
               }
             }
-          },
-          "429": {
-            "description": "Ten face re-verifications were already created against this reference verification in the last 24 hours, so the 11th is refused (`REAUTH_RATE_LIMITED`).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "examples": [
-                    {
-                      "error": {
-                        "code": "REAUTH_RATE_LIMITED",
-                        "message": "Too many re-checks for this reference verification in 24 hours."
-                      }
-                    }
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string"
-                        },
-                        "message": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "code",
-                        "message"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "error"
-                  ]
-                }
-              }
-            }
           }
         }
       },
@@ -921,6 +948,9 @@
               }
             }
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimitException"
+          },
           "422": {
             "$ref": "#/components/responses/ValidationException"
           }
@@ -988,6 +1018,9 @@
           },
           "404": {
             "$ref": "#/components/responses/ModelNotFoundException"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitException"
           },
           "422": {
             "$ref": "#/components/responses/ValidationException"
@@ -1275,6 +1308,9 @@
           "404": {
             "$ref": "#/components/responses/ModelNotFoundException"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimitException"
+          },
           "422": {
             "$ref": "#/components/responses/ValidationException"
           }
@@ -1398,6 +1434,9 @@
           },
           "404": {
             "$ref": "#/components/responses/ModelNotFoundException"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitException"
           },
           "422": {
             "$ref": "#/components/responses/ValidationException"
@@ -1668,6 +1707,9 @@
           "404": {
             "$ref": "#/components/responses/ModelNotFoundException"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimitException"
+          },
           "422": {
             "$ref": "#/components/responses/ValidationException"
           }
@@ -1710,6 +1752,9 @@
           },
           "404": {
             "$ref": "#/components/responses/ModelNotFoundException"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitException"
           },
           "422": {
             "description": "The verification is not waiting to be submitted (`INVALID_STATUS`), or required media is missing (`MISSING_REQUIRED_MEDIA`).",
@@ -1825,6 +1870,9 @@
           },
           "404": {
             "$ref": "#/components/responses/ModelNotFoundException"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitException"
           },
           "422": {
             "$ref": "#/components/responses/ValidationException"
@@ -2058,6 +2106,9 @@
           },
           "404": {
             "$ref": "#/components/responses/ModelNotFoundException"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitException"
           },
           "422": {
             "description": "The verification is not `approved`, `declined`, `abandoned` or `expired` (`VERIFICATION_NOT_FINAL`), or `reason_code` is missing or unknown, or `reason` is missing for `other` (`VALIDATION_ERROR`, with `errors` by field).",
@@ -2445,6 +2496,9 @@
           "404": {
             "$ref": "#/components/responses/ModelNotFoundException"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimitException"
+          },
           "422": {
             "description": "The verification is already final (`INVALID_STATUS`), or a field is invalid (`message` and `errors` by field).",
             "content": {
@@ -2635,6 +2689,9 @@
               }
             }
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimitException"
+          },
           "422": {
             "description": "The workspace already has 50 webhook subscriptions (`WEBHOOK_SUBSCRIPTION_LIMIT`), or a field is invalid (`message` and `errors` by field).",
             "content": {
@@ -2771,6 +2828,9 @@
                 }
               }
             }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitException"
           }
         }
       }
@@ -2804,6 +2864,9 @@
                 }
               }
             }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitException"
           },
           "404": {
             "description": "No subscription with this id in the workspace.",
@@ -2849,6 +2912,9 @@
                 }
               }
             }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitException"
           }
         }
       }
@@ -2899,6 +2965,9 @@
                 }
               }
             }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitException"
           }
         }
       }
@@ -2924,7 +2993,14 @@
         "type": "object",
         "properties": {
           "reason_code": {
-            "$ref": "#/components/schemas/BlockedFaceReasonCode"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BlockedFaceReasonCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "reason": {
             "type": [
@@ -3083,11 +3159,6 @@
             "description": "Where ProofAge POSTs the decision webhooks, signed like the workspace webhook. It must be a public URL: private, local and cloud-metadata addresses are refused.",
             "maxLength": 2048
           },
-          "include_document_data": {
-            "type": "boolean",
-            "description": "Include the document read from the identity document (names, date of birth, document number), the fingerprint signals (IP address, timezones) and the name and email of the operator who moderated. Off by default, so personal data stays out of the subscriber's logs.",
-            "default": false
-          },
           "statuses": {
             "type": [
               "array",
@@ -3105,6 +3176,11 @@
                 "review"
               ]
             }
+          },
+          "include_document_data": {
+            "type": "boolean",
+            "description": "Include the document read from the identity document (names, date of birth, document number), the fingerprint signals (IP address, timezones) and the name and email of the operator who moderated. Off by default, so personal data stays out of the subscriber's logs.",
+            "default": false
           }
         },
         "required": [
@@ -3118,7 +3194,8 @@
           "file": {
             "type": "string",
             "format": "binary",
-            "contentMediaType": "application/octet-stream"
+            "contentMediaType": "application/octet-stream",
+            "description": "Maximum file size: 10240 kilobytes."
           },
           "type": {
             "type": "string",
@@ -3160,13 +3237,9 @@
             "type": "object",
             "properties": {
               "type": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
               "issuing_country": {
@@ -3268,8 +3341,7 @@
                     ]
                   },
                   {
-                    "type": "array",
-                    "items": {}
+                    "type": "array"
                   }
                 ]
               }
@@ -3290,7 +3362,12 @@
                   "type": "string"
                 },
                 "type": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "selfie",
+                    "document_front",
+                    "document_back"
+                  ]
                 },
                 "url": {
                   "type": [
@@ -3417,7 +3494,9 @@
               "array",
               "null"
             ],
-            "items": {}
+            "items": {
+              "type": "string"
+            }
           },
           "include_document_data": {
             "type": "boolean"
@@ -3445,10 +3524,18 @@
             "type": "string"
           },
           "flow_type": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "kyc",
+              "age"
+            ]
           },
           "mode": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "test",
+              "live"
+            ]
           },
           "age_mode": {
             "type": [
@@ -3506,6 +3593,73 @@
       }
     },
     "responses": {
+      "RateLimitException": {
+        "description": "The request was refused by the rate limiter and was not processed (`RATE_LIMIT`). Wait `Retry-After` seconds, then send it again.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "examples": [
+                {
+                  "error": {
+                    "code": "RATE_LIMIT",
+                    "message": "Too many requests. Please try again later."
+                  }
+                }
+              ],
+              "properties": {
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "RATE_LIMIT"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              },
+              "required": [
+                "error"
+              ]
+            }
+          }
+        },
+        "headers": {
+          "Retry-After": {
+            "description": "Seconds until the request may be sent again.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "X-RateLimit-Limit": {
+            "description": "The limit that was hit, in requests per minute.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "X-RateLimit-Remaining": {
+            "description": "Requests left in the current minute: `0`.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "X-RateLimit-Reset": {
+            "description": "Unix time, in seconds, when the request may be sent again.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        }
+      },
       "ValidationException": {
         "description": "Validation error",
         "content": {
