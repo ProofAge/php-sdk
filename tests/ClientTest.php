@@ -23,6 +23,7 @@ use ProofAge\Sdk\Http\Request;
 use ProofAge\Sdk\Http\Response;
 use ProofAge\Sdk\Signing\Signer;
 use ProofAge\Sdk\Testing\FakeHttpClient;
+use ProofAge\Sdk\Tests\Support\TimestampedSignature;
 
 class ClientTest extends TestCase
 {
@@ -44,9 +45,9 @@ class ClientTest extends TestCase
         return new Client(array_merge(self::CONFIG, $config), $fake);
     }
 
-    private function signature(string $canonical): string
+    private function signature(string $canonical, Request $sent): string
     {
-        return hash_hmac('sha256', $canonical, 'test-secret-key');
+        return TimestampedSignature::forRequest($sent, $canonical, 'test-secret-key');
     }
 
     public function test_it_throws_exception_when_api_key_is_missing(): void
@@ -144,7 +145,7 @@ class ClientTest extends TestCase
         $this->assertSame('application/json', $sent->header('Accept'));
         $this->assertNull($sent->header('Content-Type'));
         $this->assertSame('test-api-key', $sent->header('X-API-Key'));
-        $this->assertSame($this->signature('GET/v1/workspace'), $sent->header('X-HMAC-Signature'));
+        $this->assertSame($this->signature('GET/v1/workspace', $sent), $sent->header('X-HMAC-Signature'));
         $this->assertSame(30, $sent->timeout);
         $this->assertSame(3, $sent->retryPolicy->maxAttempts);
         $this->assertSame(1000, $sent->retryPolicy->delayMs);
@@ -189,7 +190,7 @@ class ClientTest extends TestCase
         $this->assertInstanceOf(RawBody::class, $sent->body);
         $this->assertSame($expectedBody, $sent->body->bytes);
         $this->assertSame('application/json', $sent->header('Content-Type'));
-        $this->assertSame($this->signature('POST/v1/verifications/ver_123/blocked-face'.$expectedBody), $sent->header('X-HMAC-Signature'));
+        $this->assertSame($this->signature('POST/v1/verifications/ver_123/blocked-face'.$expectedBody, $sent), $sent->header('X-HMAC-Signature'));
     }
 
     public function test_default_json_flags_escape_slashes_and_unicode(): void
@@ -212,7 +213,7 @@ class ClientTest extends TestCase
         $sent = $fake->sent()[0];
         $this->assertNull($sent->body);
         $this->assertNull($sent->header('Content-Type'));
-        $this->assertSame($this->signature('POST/v1/verifications/ver_123/submit'), $sent->header('X-HMAC-Signature'));
+        $this->assertSame($this->signature('POST/v1/verifications/ver_123/submit', $sent), $sent->header('X-HMAC-Signature'));
     }
 
     public function test_a_body_that_cannot_be_json_encoded_throws_before_anything_is_sent(): void
@@ -244,7 +245,7 @@ class ClientTest extends TestCase
         $sent = $fake->sent()[0];
         $this->assertSame('https://api.test.com/v1/verifications/J%C3%BCrgen%3A1%2B2%2Cx/document', $sent->url);
         $this->assertSame('/v1/verifications/J%C3%BCrgen%3A1%2B2%2Cx/document', $sent->path);
-        $this->assertSame($this->signature('GET/v1/verifications/J%C3%BCrgen%3A1%2B2%2Cx/document'), $sent->header('X-HMAC-Signature'));
+        $this->assertSame($this->signature('GET/v1/verifications/J%C3%BCrgen%3A1%2B2%2Cx/document', $sent), $sent->header('X-HMAC-Signature'));
     }
 
     public function test_plain_segments_and_a_query_string_are_unaffected_by_the_encoding(): void
@@ -305,8 +306,8 @@ class ClientTest extends TestCase
         $sent = $fake->sent()[0];
         $this->assertSame('https://api.test.com/v1/verifications?limit=10&q=a%20b&status=approved', $sent->url);
         $this->assertSame('/v1/verifications?limit=10&q=a%20b&status=approved', $sent->path);
-        // The golden vector "query string is normalized" in resources/hmac-vectors.json.
-        $this->assertSame('fd1aab9c759aeaa41b7a9958ebe4fb3f73014e00d6682e2956d877ca6d5db565', $sent->header('X-HMAC-Signature'));
+        // The golden vector "query string is normalized" in resources/hmac-vectors.json, timestamped.
+        $this->assertSame(TimestampedSignature::forRequest($sent, 'GET/v1/verifications?limit=10&q=a%20b&status=approved', 'vector-secret-2026'), $sent->header('X-HMAC-Signature'));
     }
 
     public function test_files_make_a_multipart_request_signed_over_fields_and_file_hashes(): void
@@ -333,7 +334,7 @@ class ClientTest extends TestCase
         $this->assertSame('not-really-a-jpeg', $sent->body->files[0]->contents);
         $this->assertNull($sent->header('Content-Type'), 'The transport sets the multipart content type with its boundary.');
         $this->assertSame(
-            (new Signer('test-secret-key'))->signMultipart('POST', '/v1/verifications/ver_123/media', ['type' => 'document', 'side' => 'front'], [hash('sha256', 'not-really-a-jpeg')]),
+            (new Signer('test-secret-key'))->signMultipart('POST', '/v1/verifications/ver_123/media', ['type' => 'document', 'side' => 'front'], [hash('sha256', 'not-really-a-jpeg')], $sent->header('X-Timestamp')),
             $sent->header('X-HMAC-Signature'),
         );
     }
@@ -494,7 +495,7 @@ class ClientTest extends TestCase
         $this->assertSame(2, $sent->retryPolicy->maxAttempts);
         $this->assertSame(5, $sent->retryPolicy->delayMs);
         $this->assertSame('test-api-key', $sent->header('X-API-Key'));
-        $this->assertSame($this->signature('GET/v1/verifications/ver_1/media/med_1'), $sent->header('X-HMAC-Signature'));
+        $this->assertSame($this->signature('GET/v1/verifications/ver_1/media/med_1', $sent), $sent->header('X-HMAC-Signature'));
     }
 
     public function test_streamed_request_with_a_sink_writes_the_file(): void
@@ -601,7 +602,7 @@ class ClientTest extends TestCase
         }
 
         try {
-            $client->verifications()->create(['external_id' => 'user-1']);
+            $client->makeRequest('POST', 'verifications', ['external_id' => 'user-1']);
             $this->fail('Expected the timeout to surface.');
         } catch (TransportException $e) {
             $this->assertTrue($e->requestMayHaveBeenSent());
@@ -754,7 +755,7 @@ class ClientTest extends TestCase
         $blockedFace = $fake->sent()[1];
         $this->assertSame(1, count(array_filter(array_keys($blockedFace->headers), static fn (string $name): bool => strcasecmp($name, 'X-API-Key') === 0)));
         $this->assertSame('test-api-key', $blockedFace->header('X-API-Key'));
-        $this->assertSame($this->signature('POST/v1/verifications/ver_123/blocked-face'), $blockedFace->header('X-HMAC-Signature'));
+        $this->assertSame($this->signature('POST/v1/verifications/ver_123/blocked-face', $blockedFace), $blockedFace->header('X-HMAC-Signature'));
     }
 
     public function test_middleware_is_pushed_fluently_runs_before_signing_and_can_be_removed(): void

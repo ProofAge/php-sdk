@@ -14,6 +14,11 @@
   "security": [
     {
       "apiKey": [],
+      "hmacSignature": [],
+      "requestTimestamp": []
+    },
+    {
+      "apiKey": [],
       "hmacSignature": []
     }
   ],
@@ -231,6 +236,17 @@
         "summary": "Create a verification session",
         "tags": [
           "Verification"
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional, up to 255 printable ASCII characters (a UUID is a good choice). A retry with the same key and the same request within 24 hours returns the first response, with the header Idempotent-Replayed: true, instead of creating a second resource. 5xx responses are not kept.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "5f0c6f3e-2b9b-4d6e-9a51-0c7f3f1e8a42"
+          }
         ],
         "requestBody": {
           "content": {
@@ -659,6 +675,82 @@
                       "error": {
                         "code": "REFERENCE_VERIFICATION_NOT_FOUND",
                         "message": "The reference verification was not found."
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The `Idempotency-Key` header is empty, longer than 255 characters or not printable ASCII (`IDEMPOTENCY_KEY_INVALID`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "IDEMPOTENCY_KEY_INVALID",
+                        "message": "Idempotency-Key must be 1 to 255 printable ASCII characters"
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The `Idempotency-Key` was used in the last 24 hours for a different request (`IDEMPOTENCY_KEY_REUSED`), or a request with it is still being processed (`IDEMPOTENCY_KEY_IN_PROGRESS`, with `Retry-After`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "IDEMPOTENCY_KEY_REUSED",
+                        "message": "This Idempotency-Key was already used for a different request. Use a new key for a new request"
                       }
                     }
                   ],
@@ -2626,6 +2718,17 @@
         "tags": [
           "WebhookSubscription"
         ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional, up to 255 printable ASCII characters (a UUID is a good choice). A retry with the same key and the same request within 24 hours returns the first response, with the header Idempotent-Replayed: true, instead of creating a second resource. 5xx responses are not kept.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "5f0c6f3e-2b9b-4d6e-9a51-0c7f3f1e8a42"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -2750,6 +2853,82 @@
                         "errors"
                       ]
                     }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The `Idempotency-Key` header is empty, longer than 255 characters or not printable ASCII (`IDEMPOTENCY_KEY_INVALID`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "IDEMPOTENCY_KEY_INVALID",
+                        "message": "Idempotency-Key must be 1 to 255 printable ASCII characters"
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The `Idempotency-Key` was used in the last 24 hours for a different request (`IDEMPOTENCY_KEY_REUSED`), or a request with it is still being processed (`IDEMPOTENCY_KEY_IN_PROGRESS`, with `Retry-After`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "examples": [
+                    {
+                      "error": {
+                        "code": "IDEMPOTENCY_KEY_REUSED",
+                        "message": "This Idempotency-Key was already used for a different request. Use a new key for a new request"
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
                   ]
                 }
               }
@@ -2983,9 +3162,15 @@
       },
       "hmacSignature": {
         "type": "apiKey",
-        "description": "HMAC-SHA256 of the request, hex-encoded, keyed with the workspace secret key. See API authentication.",
+        "description": "HMAC-SHA256, hex-encoded, keyed with a workspace secret key, of \"{X-Timestamp}.\" followed by the canonical request (or of the canonical request alone, accepted for workspaces that do not require X-Timestamp). See API authentication.",
         "in": "header",
         "name": "X-HMAC-Signature"
+      },
+      "requestTimestamp": {
+        "type": "apiKey",
+        "description": "Current Unix time in seconds, signed as \"{X-Timestamp}.\" + the canonical request. Recommended on every signed request and required when the workspace requires it; accepted within 300 seconds of the server clock, and a timestamped request other than GET is accepted once.",
+        "in": "header",
+        "name": "X-Timestamp"
       }
     },
     "schemas": {

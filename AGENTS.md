@@ -11,7 +11,7 @@ A single object is never wrapped in `data`; the two list endpoints answer `{ dat
 single source of truth for endpoint paths and request shapes; `proofage/laravel-client` is
 an integration layer on top of it.
 
-All requests send `X-API-Key` and `X-HMAC-Signature` to `{base_url}/{version}/{path}`, plus
+All requests send `X-API-Key`, `X-Timestamp` and `X-HMAC-Signature` to `{base_url}/{version}/{path}`, plus
 `X-ProofAge-Sdk: php/{Client::VERSION}` (a wrapper's `sdk_tokens` go first, e.g.
 `laravel/0.9.0 php/0.3.0`) and, unless one is set, `User-Agent: ProofAge-PHP/{version} (PHP {PHP_VERSION})`;
 neither is signed. The
@@ -21,7 +21,14 @@ ignored, because the client appends the version itself; `version` defaults to `v
 ## Auth / HMAC
 
 - `X-API-Key`: workspace API key (plaintext; the server SHA256-hashes it).
-- `X-HMAC-Signature`: hex HMAC-SHA256 with the workspace secret key over a canonical string:
+- `X-Timestamp`: the current Unix time in seconds, read on **every attempt** (a retry is re-signed
+  with a fresh one). The API accepts it within 300 seconds of its own clock and accepts a
+  timestamped request other than `GET`/`HEAD` once: the same signature a second time is
+  `401 REPLAYED_REQUEST`. A workspace may require it (`401 TIMESTAMP_REQUIRED` without); the SDK
+  always sends it. Keep the host clock right: `401 TIMESTAMP_OUT_OF_RANGE` means it is not.
+- `X-HMAC-Signature`: hex HMAC-SHA256 with the workspace secret key over a canonical string, which
+  starts with `{X-Timestamp}.` (the legacy canonical string below follows the dot; without the
+  header the API still verifies the legacy string alone, which this SDK no longer sends):
   - JSON / no-file requests: `METHOD + /{version}/{path} + rawJsonBody`.
   - Multipart (file) requests: `METHOD/{version}/{path}\n{sorted fields as RFC3986 query}\n{comma-joined sorted sha256(file) hashes}`.
   - When the request carries a query string, the signed path is `/{version}/{path}?{query}` with
@@ -50,6 +57,7 @@ Response: `{ id: int, version: int, text_sha256: string, url: string }` (`versio
 Request: `{ callback_url?: url(<=2048), external_id?: string(<=255), external_metadata?: object, metadata?: object, reference_verification_id?: uuid }`; `reference_verification_id` makes the session a **face re-verification** (see below).
 Response: `201 { id: string, external_id: string|null, external_metadata: object|null, redirect_url: string|null, status: string, reason: string|null, duplicate_check: { checked: bool, duplicate_count: int, duplicates: [ { verification_id: string|null, external_id: string|null, similarity_score: float|null, verified_at: string|null } ] }, erasure: { erased_at: string, scope: string, reason: string|null, requested_via: string|null }|null, consent_accepted_at: string|null, created_at: string, updated_at: string, reauth?: { reference_verification_id: string|null, reference_verified_at: string|null }, url: string }` (`reauth` only on a face re-verification; every other verification has no `reauth` key, so test with `isset()` or `array_key_exists()`)
 `callback_url` is where the person's browser goes when they finish (returned as `redirect_url`, falling back to the workspace's redirect URL); it is **not** a webhook target. `url` is the link the person opens. `duplicate_count` counts every face match; `duplicates` may be shorter. `erasure` is null until the personal data is erased.
+Idempotency: every call sends an `Idempotency-Key` (a fresh UUID v4, reused by the SDK's own retries); pass your own as the second argument, `create($data, idempotencyKey: 'order-42')` (1 to 255 printable ASCII characters, anything else throws `\InvalidArgumentException`). See *Idempotency* below.
 Errors: `402` `{ code: "PAYMENT_METHOD_REQUIRED", message, free_verifications_remaining, trial_ends_at, trial_active }` (flat, not nested under `error`); and, only when `reference_verification_id` is sent, the refusals under *Face re-verification*.
 
 ### Face re-verification — `$client->verifications()->create([..., 'reference_verification_id' => $id])`
@@ -116,6 +124,7 @@ Errors: `403 { error: { code: "TEST_WORKSPACE_ONLY", message } }` on a live work
 ### POST /webhook-subscriptions — `$client->webhookSubscriptions()->create($data)`
 Request: `{ url: url(http/https, <=2048, public), statuses?: list<"approved"|"declined"|"resubmission_requested"|"review"|"abandoned"|"expired">|null, include_document_data?: bool (default false) }`.
 Response: `201 { id: string, url: string, statuses: string[]|null, include_document_data: bool, created_at: string }`. `statuses` is `null` when the subscription receives every decision status.
+Idempotency: like `verifications()->create()`, `create($data, $idempotencyKey = null)` sends an `Idempotency-Key`.
 A subscription (REST hook, e.g. Zapier) receives the decision webhooks in addition to the workspace webhook URL; see "Outbound webhook" below. A workspace can have up to 50. A private, local or cloud-metadata URL is refused.
 Errors: `422 { error: { code: "WEBHOOK_SUBSCRIPTION_LIMIT", message } }` when the workspace already has 50; `422 { message, errors }` for invalid fields.
 
@@ -128,6 +137,17 @@ Request: none.
 Response: `204 No Content`; the method returns `void`. Deliveries already queued are not sent.
 Error: `404 { message: "Resource not found" }` when the id is not one of the workspace's subscriptions.
 
+## Idempotency
+
+Only `POST /verifications` and `POST /webhook-subscriptions` take an `Idempotency-Key` (1 to 255 printable ASCII characters); the SDK sends it on exactly those two and on nothing else.
+
+- The same key with the same request within 24 hours replays the first response, with the header `Idempotent-Replayed: true`. `X-Timestamp` is ignored when requests are compared, so a re-signed retry matches.
+- The same key with a different request: `409 IDEMPOTENCY_KEY_REUSED` (a `ProofAgeException`; not retried). Use a new key for a new request.
+- The same key while the first request is still running: `409 IDEMPOTENCY_KEY_IN_PROGRESS` with `Retry-After: 1`. The SDK retries it after the `Retry-After` (at most 10 seconds).
+- A malformed key: `400 IDEMPOTENCY_KEY_INVALID`. The SDK checks the key first and throws `\InvalidArgumentException`.
+- Only responses below 500 are stored: a 5xx is not replayed, the key is free to use again.
+- To make a retry of your own call safe, store a key with your order and pass it every time; without one each call to `create()` is a new logical request.
+
 ## Retries
 
 `GET` and `DELETE` requests are retried (`retry_attempts`, default 3) after a transport failure, a 429, or a
@@ -135,6 +155,31 @@ Error: `404 { message: "Resource not found" }` when the id is not one of the wor
 failure before the request was sent (`TransportException::requestMayHaveBeenSent()` is false) or a
 429 carrying `Retry-After`. A 5xx or a timeout on a `POST` is thrown at once. `erasePersonalData()`
 is a `DELETE` retried as a `POST` is: a 409, a 503, any other 5xx and a timeout are thrown at once.
+
+The exception is a `POST` that carries an `Idempotency-Key`, which is `verifications()->create()` and
+`webhookSubscriptions()->create()`: it is retried like a `GET` (a transport failure, a 429, a 5xx), plus a
+`409 IDEMPOTENCY_KEY_IN_PROGRESS` after its `Retry-After`. The key is the same on every attempt; the
+`X-Timestamp` and the signature are new on each. A `429 REAUTH_RATE_LIMITED` is still not retried.
+
+One more rule applies to every non-`GET` request, whatever its method and whether or not it carries a key. The
+signature covers whole seconds, so two byte-identical requests signed in the same second (two creates with
+the same body) share one, and the API refuses the second with `401 REPLAYED_REQUEST` before processing it. The
+SDK waits until the clock reaches the next whole second, signs the request again with a new `X-Timestamp`
+(everything else, the `Idempotency-Key` included, unchanged) and resends it **once**. That resend does not
+count against `retry_attempts`; a second `REPLAYED_REQUEST` is thrown as a `ProofAgeException`. A `GET` is never
+verified for replay, so it is never resent for it.
+
+Two more rules come from the timestamp. **Clock skew:** a host clock more than 300 seconds off the API's fails every
+call with `401 TIMESTAMP_OUT_OF_RANGE`. When that answer has a parseable `Date` header, the client takes the
+server's time from it (the offset is kept and used for every later request of that client), signs the request again
+and resends it **once**, any method, with the same `Idempotency-Key`, outside `retry_attempts`. Without a `Date`
+header, or on a second refusal, the `ProofAgeException` is thrown; fix the host clock. **Same second:** before any
+re-attempt of a non-`GET`/`HEAD` request (a retry, or either resend above) the SDK waits until the clock is past the
+timestamp of the previous attempt, so the re-attempt is never signed with the same bytes; that wait replaces the
+`retry_delay` pause when it is longer, it is not added to it. A `POST` is retried on a 5xx or a timeout only when
+the SDK itself set the `Idempotency-Key` (the two creates): a header a middleware adds to another request changes
+nothing. Give two deliberate identical creates different bodies
+(`external_id`) or send them a second apart if you want to avoid the one-second wait.
 
 ## Enums
 
@@ -152,7 +197,7 @@ exception reads each:
 
 | Body | Sent for | `getMessage()` | `getErrorCode()` | `getErrorData()` |
 |---|---|---|---|---|
-| `{ error: { code, message } }` | most errors: 401, 403 `TEST_WORKSPACE_ONLY`, 404 `MEDIA_NOT_FOUND`, 422 on submit, 422 `INVALID_STATUS`, 422 `WEBHOOK_SUBSCRIPTION_LIMIT`, 429 `RATE_LIMIT`; on an erasure 403 `VERIFICATION_MISMATCH`, 409 `VERIFICATION_PROCESSING` / `ERASURE_IN_PROGRESS`, 422 `VERIFICATION_NOT_FINAL`, 503 `ERASURE_FAILED` | `error.message` | `error.code` | the `error` object |
+| `{ error: { code, message } }` | most errors: 401 (also `TIMESTAMP_OUT_OF_RANGE`, `TIMESTAMP_REQUIRED`, `REPLAYED_REQUEST`), 400 `IDEMPOTENCY_KEY_INVALID`, 409 `IDEMPOTENCY_KEY_REUSED` / `IDEMPOTENCY_KEY_IN_PROGRESS`, 403 `TEST_WORKSPACE_ONLY`, 404 `MEDIA_NOT_FOUND`, 422 on submit, 422 `INVALID_STATUS`, 422 `WEBHOOK_SUBSCRIPTION_LIMIT`, 429 `RATE_LIMIT`; on an erasure 403 `VERIFICATION_MISMATCH`, 409 `VERIFICATION_PROCESSING` / `ERASURE_IN_PROGRESS`, 422 `VERIFICATION_NOT_FINAL`, 503 `ERASURE_FAILED` | `error.message` | `error.code` | the `error` object |
 | `{ error: { code, message }, errors }` | 422 `VALIDATION_ERROR` on an erasure | `error.message` | `error.code` | the `error` object; `getErrors()` is `errors` |
 | `{ code, message, ... }` | 402 `PAYMENT_METHOD_REQUIRED`; upload quality errors: 422 `FACE_NOT_FOUND`, `MAX_ATTEMPTS_REACHED`, ..., 500 `VALIDATION_SERVICE_UNAVAILABLE` | `message` | `code` | the whole body |
 | `{ message, errors }` | 422 request validation | `message` | `null` | the whole body; `getErrors()` is `errors` |

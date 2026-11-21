@@ -49,6 +49,16 @@ class HmacVectorsTest extends TestCase
     }
 
     /** @return iterable<string, array{array<string, mixed>, string}> */
+    public static function timestampedVectors(): iterable
+    {
+        $fixture = self::fixture();
+
+        foreach ($fixture['timestamped'] as $vector) {
+            yield $vector['name'].' ('.$vector['form'].')' => [$vector, $fixture['secret']];
+        }
+    }
+
+    /** @return iterable<string, array{array<string, mixed>, string}> */
     public static function webhookVectors(): iterable
     {
         $fixture = self::fixture();
@@ -66,6 +76,7 @@ class HmacVectorsTest extends TestCase
         $this->assertSame('vector-secret-2026', $fixture['secret']);
         $this->assertCount(6, $fixture['json']);
         $this->assertCount(6, $fixture['multipart']);
+        $this->assertCount(12, $fixture['timestamped']);
         $this->assertCount(3, $fixture['webhook']);
     }
 
@@ -117,6 +128,40 @@ class HmacVectorsTest extends TestCase
             (new Signer($secret))->signMultipart($vector['method'], $vector['path'], $vector['fields'], $hashes),
             'HMAC drifted although the canonical string matches.',
         );
+    }
+
+    /**
+     * Every timestamped vector: the canonical string first (`{timestamp}.` in front of the legacy
+     * form), then the HMAC over it. The same request without the timestamp is still the legacy vector.
+     *
+     * @param  array<string, mixed>  $vector
+     */
+    #[DataProvider('timestampedVectors')]
+    public function test_timestamped_vector(array $vector, string $secret): void
+    {
+        $timestamp = $vector['timestamp'];
+        $signer = new Signer($secret);
+
+        if ($vector['form'] === 'multipart') {
+            $hashes = array_map(
+                static fn (array $file): string => (new FilePart($file['field'], $file['filename'], (string) base64_decode($file['content_base64'], true)))->sha256(),
+                $vector['files'],
+            );
+
+            $this->assertSame($vector['canonical'], Signer::canonicalMultipart($vector['method'], $vector['path'], $vector['fields'], $hashes, $timestamp), 'Canonical string drifted.');
+            $this->assertSame($vector['expected'], $signer->signMultipart($vector['method'], $vector['path'], $vector['fields'], $hashes, $timestamp), 'HMAC drifted although the canonical string matches.');
+
+            return;
+        }
+
+        $path = $vector['path'];
+
+        if (isset($vector['query'])) {
+            $path .= '?'.Signer::normalizeQueryString($vector['query']);
+        }
+
+        $this->assertSame($vector['canonical'], Signer::canonicalRaw($vector['method'], $path, $vector['body'], $timestamp), 'Canonical string drifted.');
+        $this->assertSame($vector['expected'], $signer->signRaw($vector['method'], $path, $vector['body'], $timestamp), 'HMAC drifted although the canonical string matches.');
     }
 
     /** @param array<string, mixed> $vector */

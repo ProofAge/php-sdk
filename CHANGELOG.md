@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.15.0 - 2026-11-21
+
+### Added
+
+- Every request now carries `X-Timestamp` (Unix seconds) and is signed over `{timestamp}.{canonical}`.
+  The timestamp is read, and the signature computed, on every attempt, so a retry is signed afresh: the
+  API accepts a timestamped request other than `GET`/`HEAD` once and refuses a repeated signature with
+  `401 REPLAYED_REQUEST`. `Signer::sign()`, `signRaw()`, `signMultipart()`, `canonicalRaw()` and
+  `canonicalMultipart()` take an optional trailing `$timestamp`; without it they sign the legacy string
+  as before. `SignMiddleware` takes an optional clock for tests.
+- `verifications()->create()` and `webhookSubscriptions()->create()` send an `Idempotency-Key`: a fresh UUID
+  v4 per call, reused by the SDK's own retries, or your own as the new optional second argument
+  (`idempotencyKey`, 1 to 255 printable ASCII characters).
+- Retries: a `POST` that carries an `Idempotency-Key` is retried like a `GET` (transport failure, 429, 5xx),
+  and a `409 IDEMPOTENCY_KEY_IN_PROGRESS` is retried after its `Retry-After` (at most 10 seconds). A call
+  without a key retries as before, and `429 REAUTH_RATE_LIMITED` is still not retried.
+- A non-`GET` request answered `401 REPLAYED_REQUEST` (an identical request was signed in the same second;
+  nothing was processed) is resent once after the clock reaches the next whole second, with a new
+  `X-Timestamp` and signature and the same `Idempotency-Key`, whatever the retry policy says. It does not count
+  against `retry_attempts`; a second `REPLAYED_REQUEST` is thrown. `RetryMiddleware` takes an optional clock.
+- Clock skew: a `401 TIMESTAMP_OUT_OF_RANGE` with a parseable `Date` header makes the client adopt the
+  server's time (an offset shared by all its later requests), sign again and resend once, any method, with
+  the same `Idempotency-Key` and outside `retry_attempts`. Without a `Date` header, or on a second refusal, it
+  throws as before.
+- Before any re-attempt of a non-`GET`/`HEAD` request (retry, replay resend or skew resend) the SDK waits until
+  the clock is past the previous attempt's timestamp second; one sleep, the longer of that and `retry_delay`.
+- The retry policy decides on a flag `Client` sets on the two creates (`Request::$idempotencyKeyed`), not on the
+  presence of an `Idempotency-Key` header, so a header added by a middleware to `submit()` or `uploadMedia()`
+  does not make them retryable on a 5xx. New `ProofAge\Sdk\Http\Clock`; `SignMiddleware` and
+  `RetryMiddleware` accept it (or a callable) as their clock.
+- Error codes `TIMESTAMP_OUT_OF_RANGE`, `TIMESTAMP_REQUIRED`, `REPLAYED_REQUEST`, `IDEMPOTENCY_KEY_INVALID`,
+  `IDEMPOTENCY_KEY_REUSED` and `IDEMPOTENCY_KEY_IN_PROGRESS` are documented in `AGENTS.md`; they arrive
+  through `getErrorCode()` like every other code.
+- `resources/hmac-vectors.json` has a `timestamped` set, executed by `tests/Signing/HmacVectorsTest.php`.
+- `resources/openapi.json` synced from the docs (`requestTimestamp` security scheme, `Idempotency-Key`).
+
+### Changed
+
+- A custom `HttpClient` or middleware that copied the signature of a request and re-sent it later must now
+  also send its `X-Timestamp`; the SDK itself needs no change. `create()` of both resources has a new
+  optional parameter, so a subclass that overrides it must accept it.
+
 ## 0.14.0 - 2026-11-19
 
 ### Changed

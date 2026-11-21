@@ -17,6 +17,7 @@ use ProofAge\Sdk\Http\Body\MultipartBody;
 use ProofAge\Sdk\Http\Request;
 use ProofAge\Sdk\Resources\VerificationResource;
 use ProofAge\Sdk\Testing\FakeHttpClient;
+use ProofAge\Sdk\Tests\Support\TimestampedSignature;
 use Psr\Http\Message\StreamInterface;
 
 /**
@@ -174,7 +175,7 @@ class VerificationResourceTest extends TestCase
             $this->assertSame($code, $e->getErrorCode());
         }
 
-        $this->assertCount(1, $this->fake->sent(), 'A refusal is not retried.');
+        $this->assertCount(1, $this->fake->sent(), 'A refusal is not retried, REAUTH_RATE_LIMITED included.');
     }
 
     public function test_find_sends_get_to_correct_endpoint(): void
@@ -548,9 +549,7 @@ class VerificationResourceTest extends TestCase
 
         $client->verifications('ver_1')->downloadMedia('med_1');
 
-        $expected = hash_hmac('sha256', 'GET/v1/verifications/ver_1/media/med_1', 'test-secret-key');
-
-        $this->fake->assertSent(fn (Request $request) => $request->header('X-HMAC-Signature') === $expected);
+        $this->fake->assertSent(fn (Request $request) => $request->header('X-HMAC-Signature') === TimestampedSignature::forRequest($request, 'GET/v1/verifications/ver_1/media/med_1', 'test-secret-key'));
     }
 
     public function test_download_media_to_writes_the_file_to_disk(): void
@@ -747,17 +746,11 @@ class VerificationResourceTest extends TestCase
         $this->assertNull($result);
 
         $expectedBody = json_encode(['reason' => 'text here']);
-        $expectedSignature = hash_hmac(
-            'sha256',
-            'POST/v1/verifications/ver_123/blocked-face'.$expectedBody,
-            'test-secret-key'
-        );
-
-        $this->fake->assertSent(function (Request $request) use ($expectedBody, $expectedSignature) {
+        $this->fake->assertSent(function (Request $request) use ($expectedBody) {
             return $request->method === 'POST'
                 && str_contains($request->url, '/v1/verifications/ver_123/blocked-face')
                 && $request->body?->bytes === $expectedBody
-                && $request->header('X-HMAC-Signature') === $expectedSignature;
+                && $request->header('X-HMAC-Signature') === TimestampedSignature::forRequest($request, 'POST/v1/verifications/ver_123/blocked-face'.$expectedBody, 'test-secret-key');
         });
     }
 
@@ -801,7 +794,7 @@ class VerificationResourceTest extends TestCase
         $this->assertSame($expectedBody, $sent->body?->bytes);
         $this->assertSame('application/json', $sent->header('Content-Type'));
         $this->assertSame(
-            hash_hmac('sha256', 'DELETE/v1/verifications/ver_123/personal-data'.$expectedBody, 'test-secret-key'),
+            TimestampedSignature::forRequest($sent, 'DELETE/v1/verifications/ver_123/personal-data'.$expectedBody, 'test-secret-key'),
             $sent->header('X-HMAC-Signature'),
         );
     }
@@ -942,7 +935,7 @@ class VerificationResourceTest extends TestCase
         $this->assertSame('GET', $sent->method);
         $this->assertSame('https://api.test.com/v1/verifications', $sent->url);
         $this->assertNull($sent->body);
-        $this->assertSame(hash_hmac('sha256', 'GET/v1/verifications', 'test-secret-key'), $sent->header('X-HMAC-Signature'));
+        $this->assertSame(TimestampedSignature::forRequest($sent, 'GET/v1/verifications', 'test-secret-key'), $sent->header('X-HMAC-Signature'));
     }
 
     public function test_list_signs_the_query_as_the_api_normalizes_it(): void
@@ -969,7 +962,7 @@ class VerificationResourceTest extends TestCase
         $sent = $this->fake->sent()[0];
         $this->assertSame('https://api.test.com/v1/verifications?'.$query, $sent->url);
         $this->assertSame('/v1/verifications?'.$query, $sent->path);
-        $this->assertSame(hash_hmac('sha256', 'GET/v1/verifications?'.$query, 'test-secret-key'), $sent->header('X-HMAC-Signature'));
+        $this->assertSame(TimestampedSignature::forRequest($sent, 'GET/v1/verifications?'.$query, 'test-secret-key'), $sent->header('X-HMAC-Signature'));
     }
 
     public function test_list_takes_the_status_filter_as_a_string_or_enum_cases(): void
@@ -1031,7 +1024,7 @@ class VerificationResourceTest extends TestCase
         $this->assertSame('POST', $sent->method);
         $this->assertSame($expectedBody, $sent->body?->bytes);
         $this->assertSame(
-            hash_hmac('sha256', 'POST/v1/verifications/ver_123/test-outcome'.$expectedBody, 'test-secret-key'),
+            TimestampedSignature::forRequest($sent, 'POST/v1/verifications/ver_123/test-outcome'.$expectedBody, 'test-secret-key'),
             $sent->header('X-HMAC-Signature'),
         );
     }
